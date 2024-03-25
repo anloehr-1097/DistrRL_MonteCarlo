@@ -5,7 +5,8 @@
 
 import scipy.stats as sp
 import numpy as np
-from typing import Tuple, Dict, Sequence, Callable
+from typing import Tuple, Dict, Sequence, Callable, List
+import random
 from numba import njit
 
 
@@ -62,24 +63,30 @@ def conv_jit(a: Tuple[np.ndarray, np.ndarray],
     return new_val, probs
 
 
-@njit
-def apply_projection(func: Callable, *args, **kwargs) -> Callable:
+def apply_projection(func: Callable) -> Callable:
     """Apply binning as returned from func.
 
     Assumes that kwargs["probs"] is in kwargs.
     """
-    def apply_projection_inner(func, *args, **kwargs) -> Tuple[np.ndarray, np.ndarray]:
+    def apply_projection_inner(*args, **kwargs) -> Tuple[np.ndarray, np.ndarray]:
         bins: np.ndarray
         no_of_bins: int
-        bins, no_of_bins = func(*args, **kwargs)
+        bin_values: np.ndarray
+
+        bins, bin_values, no_of_bins = func(*args, **kwargs)
         # do binning, stupidly
-        new_values: np.ndarray = np.zeros(no_of_bins)
+        # new_values: np.ndarray = np.zeros(no_of_bins)
         new_probs: np.ndarray = np.zeros(no_of_bins)
 
         for i in range(no_of_bins):
-            new_values[i] = np.count_nonzero(bins == i)
             new_probs[i] = np.sum(kwargs["probs"][bins == i])
-        return new_values, new_probs
+
+        # TODO: ensure that probs sum to 1, other behviour
+        rem: np.float64 = 1 - np.sum(new_probs)
+        new_probs[random.randint(0, no_of_bins - 1)] += rem
+
+        return bin_values, new_probs
+
 
     return apply_projection_inner
 
@@ -87,32 +94,52 @@ def apply_projection(func: Callable, *args, **kwargs) -> Callable:
 @apply_projection
 @njit
 def project_eqi(values: np.ndarray, probs: np.ndarray, no_of_bins: int,
-                state: int) -> Tuple[np.ndarray, int]:
+                state: int) -> Tuple[np.ndarray, np.ndarray, int]:
     """Project equisdistantly. Return bins."""
     v_min: np.float64
     v_max: np.float64
     v_min, v_max = np.min(values), np.max(values)
 
-    bins: np.ndarray = np.digitize(values,
-                                   np.linspace(v_min, v_max, no_of_bins))
-    return bins, no_of_bins
+    bin_values: np.ndarray = np.linspace(v_min, v_max, no_of_bins)
+    assert bin_values.size == no_of_bins, "wrong number of bins."
+    bins: np.ndarray = np.digitize(values, bin_values)
+    return bins, bin_values, no_of_bins
 
 
 @njit
 @apply_projection
 def project(values: np.ndarray, probs: np.ndarray, iteration: int,
             bin_func: Callable) -> Tuple[np.ndarray, np.ndarray]:
+    # TODO delete this
     """General projection function."""
     v_min, v_max = np.max(values), np.min(values)
 
     bins: np.ndarray = bin_func(values, probs, iteration)
     return bins, bins
 
-    # TODO continue here
 
     proj_values: np.ndarray = np.linspace(v_min, v_max, iteration)
     proj_probs: np.ndarray = np.zeros(iteration)
     return proj_values, proj_probs
+
+
+def simulate_update(time_steps: int, num_samples: int, return_distr) \
+        -> Tuple[np.ndarray, np.ndarray]:
+    """Simulate update of return distribution."""
+    samples: np.ndarray = np.asarray([return_distr.rvs()
+                                      for _ in range(num_samples)])
+    approx_list: List = []
+    g_0: Tuple[np.ndarray, np.ndarray] = \
+        (np.random.random(2), np.array([0.5, 0.5]))
+
+    emp_distr: Tuple[np.ndarray, np.ndarray] = (samples,
+                                                np.ones(num_samples) / num_samples)
+    for t in range(time_steps):
+        g_t: Tuple[np.ndarray, np.ndarray] = conv_jit(emp_distr, approx_list[-1])
+        g_t = project_eqi(values=g_t[0], probs=g_t[1], no_of_bins=(t+1)*10, state=1)
+        approx_list.append(g_t)
+
+    return approx_list[-1]
 
 
 def main():
@@ -131,6 +158,14 @@ if __name__ == "__main__":
     a = (a_val, a_probs)
     b = (b_val, b_probs)
 
-    c = conv(a, b)
 
-    # main()
+    c = conv(a, b)
+    vals = np.linspace(0, 100, 1000)
+    ps = np.ones(1000) * 1/1000
+    # apply_projection(project_eqi)(values=vals, probs=ps, no_of_bins=10, state=1)
+    new_vals, new_probs = project_eqi(values=vals, probs=ps, no_of_bins=10, state=1)
+
+    print(new_vals, new_probs)
+    print(np.sum(new_probs))
+    print("completed binning.")
+    # Main()
