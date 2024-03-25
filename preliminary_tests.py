@@ -63,12 +63,12 @@ def conv_jit(a: Tuple[np.ndarray, np.ndarray],
 
 
 @njit
-def bin_fun_dec(func: Callable, *args, **kwargs) -> Callable:
+def apply_projection(func: Callable, *args, **kwargs) -> Callable:
     """Apply binning as returned from func.
 
     Assumes that kwargs["probs"] is in kwargs.
     """
-    def apply_projection(func, *args, **kwargs) -> Tuple[np.ndarray, np.ndarray]:
+    def apply_projection_inner(func, *args, **kwargs) -> Tuple[np.ndarray, np.ndarray]:
         bins: np.ndarray
         no_of_bins: int
         bins, no_of_bins = func(*args, **kwargs)
@@ -81,10 +81,10 @@ def bin_fun_dec(func: Callable, *args, **kwargs) -> Callable:
             new_probs[i] = np.sum(kwargs["probs"][bins == i])
         return new_values, new_probs
 
-    return apply_projection
+    return apply_projection_inner
 
 
-@Bin_fun_dec
+@apply_projection
 @njit
 def project_eqi(values: np.ndarray, probs: np.ndarray, no_of_bins: int,
                 state: int) -> Tuple[np.ndarray, int]:
@@ -99,7 +99,7 @@ def project_eqi(values: np.ndarray, probs: np.ndarray, no_of_bins: int,
 
 
 @njit
-@bin_fun_dec
+@apply_projection
 def project(values: np.ndarray, probs: np.ndarray, iteration: int,
             bin_func: Callable) -> Tuple[np.ndarray, np.ndarray]:
     """General projection function."""
