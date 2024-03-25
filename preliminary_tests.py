@@ -69,12 +69,14 @@ def bin_fun_dec(func: Callable, *args, **kwargs) -> Callable:
     Assumes that kwargs["probs"] is in kwargs.
     """
     def apply_projection(func, *args, **kwargs) -> Tuple[np.ndarray, np.ndarray]:
-        bins: np.ndarray = func(*args, **kwargs)
+        bins: np.ndarray
+        no_of_bins: int
+        bins, no_of_bins = func(*args, **kwargs)
         # do binning, stupidly
-        new_values: np.ndarray = np.zeros(np.unique(bins).shape[0])
-        new_probs: np.ndarray = np.zeros(np.unique(bins).shape[0])
+        new_values: np.ndarray = np.zeros(no_of_bins)
+        new_probs: np.ndarray = np.zeros(no_of_bins)
 
-        for i in range(len(bins)):
+        for i in range(no_of_bins):
             new_values[i] = np.count_nonzero(bins == i)
             new_probs[i] = np.sum(kwargs["probs"][bins == i])
         return new_values, new_probs
@@ -82,17 +84,18 @@ def bin_fun_dec(func: Callable, *args, **kwargs) -> Callable:
     return apply_projection
 
 
-@bin_fun_dec
+@Bin_fun_dec
 @njit
-def project_eqi(values: np.ndarray, probs: np.ndarray, iteration: int,
-                state: int) -> np.ndarray:
+def project_eqi(values: np.ndarray, probs: np.ndarray, no_of_bins: int,
+                state: int) -> Tuple[np.ndarray, int]:
     """Project equisdistantly. Return bins."""
     v_min: np.float64
     v_max: np.float64
     v_min, v_max = np.min(values), np.max(values)
 
-    bins: np.ndarray = np.digitize(values, np.linspace(v_min, v_max, iteration))
-    return bins
+    bins: np.ndarray = np.digitize(values,
+                                   np.linspace(v_min, v_max, no_of_bins))
+    return bins, no_of_bins
 
 
 @njit
