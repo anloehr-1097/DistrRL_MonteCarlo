@@ -1,5 +1,6 @@
 
 #include <iostream>
+#include "cuda_runtime.h"
 
 
 struct DD {
