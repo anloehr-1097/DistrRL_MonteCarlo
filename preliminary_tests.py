@@ -10,10 +10,12 @@ import numpy as np
 import scipy.stats as sp
 from numba import njit, jit
 import matplotlib.pyplot as plt
+import time
+
 
 STATES = {1, 2}
 ACTIONS = {1, 2, 3, 4}
-
+DEBUG = True
 # need some initial collection of distrs for the total reward =: nu^0
 # need some return distributons
 # need samples from return distr for each triple (s, a, s') (N * |S| * |A| * |S|) many)
@@ -51,6 +53,29 @@ def conv(
     new_val: np.ndarray = np.add(a[0], b[0][:, None]).flatten()
     probs: np.ndarray = np.multiply(a[1], b[1][:, None]).flatten()
     return new_val, probs
+
+
+
+def time_it(debug: bool) -> Callable:
+    """Time function.
+
+    Print time for func call if debug is True.
+    """
+
+    def time_it_dec(func: Callable) -> Callable:
+        if debug:
+        
+            def time_it_inner(*args, **kwargs): 
+                start: float = time.time()
+                ret_val = func(*args, **kwargs)
+                end: float = time.time()
+                print(f"Time taken: {end-start}")
+                return ret_val
+            return time_it_inner
+
+        else: return func
+
+    return time_it_dec
 
 
 @njit
@@ -151,20 +176,15 @@ def project_eqi(
     bins: np.ndarray = np.digitize(values, bin_values)
     return bins, bin_values, no_of_bins
 
-
 def simulate_update(
         time_steps: int, num_samples: int,
-        return_distr: sp.stats.rv_frozen,
+        reward_distr: Tuple[np.ndarray, np.ndarray],
         proj_func: Callable
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Simulate update of return distribution."""
+    """Simulate update of aggregate return distribution over time_steps periods.
 
-    # sample indepenent samples and create empirical distribution
-    samples: np.ndarray = np.asarray([return_distr.rvs() for _ in range(num_samples)])
-    emp_distr: Tuple[np.ndarray, np.ndarray] = (
-        samples,
-        np.ones(num_samples) / num_samples,
-    )
+    Return aggregate return distribution.
+    """
 
     approx_list: List = []
     # start with some random intial aggregate return distribution
@@ -172,14 +192,28 @@ def simulate_update(
     rand_values: np.ndarray = np.random.random(num_elements_g0)
 
     g_0: Tuple[np.ndarray, np.ndarray] = (rand_values, rand_values / np.sum(rand_values))
+    approx_list.append(g_0)
+
 
     for t in range(time_steps):
-        g_t: Tuple[np.ndarray, np.ndarray] = conv_jit(emp_distr, approx_list[-1])
-        g_t = proj_func(values=g_t[0], probs=g_t[1], no_of_bins=(t + 1) * 10, state=1)
+        # g_t: Tuple[np.ndarray, np.ndarray] = conv_jit(emp_distr, approx_list[-1])
+        # g_t = proj_func(values=g_t[0], probs=g_t[1], no_of_bins=(t + 1) * 10, state=1)
+        # approx_list.append(g_t)
+        g_t: Tuple[np.ndarray, np.ndarray] = simulate_one_step(reward_distr, approx_list[-1], t, proj_func)
         approx_list.append(g_t)
+
 
     return approx_list[-1]
 
+
+@time_it(DEBUG)
+def simulate_one_step(dist1: Tuple[np.ndarray, np.ndarray],
+                      dist2: Tuple[np.ndarray, np.ndarray],
+                      time_step: int, proj_func: Callable) -> Tuple[np.ndarray, np.ndarray]:
+
+    g_t: Tuple[np.ndarray, np.ndarray] = aggregate_conv_results(conv_jit(dist1, dist2))
+    g_t = proj_func(values=g_t[0], probs=g_t[1], no_of_bins=(time_step + 1) * 10, state=1)
+    return g_t
 
 
 def plot_atomic_distr(distr: Tuple[np.ndarray, np.ndarray]) -> None:
