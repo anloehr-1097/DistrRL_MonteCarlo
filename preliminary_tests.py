@@ -3,11 +3,12 @@
 # import numpy as np
 
 
-import scipy.stats as sp
-import numpy as np
-from typing import Tuple, Dict, Sequence, Callable
-from numba import njit
+import random
+from typing import Callable, Dict, List, Sequence, Tuple
 
+import numpy as np
+import scipy.stats as sp
+from numba import njit
 
 STATES = {1, 2}
 ACTIONS = {1, 2, 3, 4}
@@ -38,8 +39,9 @@ class RV_Discrete:
         self.pk: np.ndarray = pk
 
 
-def conv(a: Tuple[np.ndarray, np.ndarray],
-         b: Tuple[np.ndarray, np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
+def conv(
+    a: Tuple[np.ndarray, np.ndarray], b: Tuple[np.ndarray, np.ndarray]
+) -> Tuple[np.ndarray, np.ndarray]:
     """Convolution of two distributions.
 
     0th entry values, 1st entry probabilities.
@@ -50,9 +52,9 @@ def conv(a: Tuple[np.ndarray, np.ndarray],
 
 
 @njit
-def conv_jit(a: Tuple[np.ndarray, np.ndarray],
-             b: Tuple[np.ndarray, np.ndarray]) \
-             -> Tuple[np.ndarray, np.ndarray]:
+def conv_jit(
+    a: Tuple[np.ndarray, np.ndarray], b: Tuple[np.ndarray, np.ndarray]
+) -> Tuple[np.ndarray, np.ndarray]:
     """Convolution of two distributions.
 
     Numba JIT compiled version.
@@ -67,51 +69,79 @@ def apply_projection(func: Callable) -> Callable:
 
     Assumes that kwargs["probs"] is in kwargs.
     """
-    def apply_projection_inner(func, *args, **kwargs) -> Tuple[np.ndarray, np.ndarray]:
+
+    def apply_projection_inner(*args, **kwargs) -> Tuple[np.ndarray, np.ndarray]:
         bins: np.ndarray
         no_of_bins: int
-        bins, no_of_bins = func(*args, **kwargs)
+        bin_values: np.ndarray
+
+        bins, bin_values, no_of_bins = func(*args, **kwargs)
         # do binning, stupidly
-        new_values: np.ndarray = np.zeros(no_of_bins)
+        # new_values: np.ndarray = np.zeros(no_of_bins)
         new_probs: np.ndarray = np.zeros(no_of_bins)
 
         for i in range(no_of_bins):
-            new_values[i] = np.count_nonzero(bins == i)
-            new_probs[i] = np.sum(kargs["probs"][bins == i])
-        return new_values, new_probs
+            new_probs[i] = np.sum(kwargs["probs"][bins == i])
+            # TODO: ensure that probs sum to 1, other behviour
+            rem: np.float64 = 1 - np.sum(new_probs)
+            new_probs[random.randint(0, no_of_bins - 1)] += rem
+
+        return bin_values, new_probs
 
     return apply_projection_inner
 
 
 @apply_projection
 @njit
-def project_eqi(values: np.ndarray, probs: np.ndarray, no_of_bins: int,
-                state: int) -> Tuple[np.ndarray, int]:
+def project_eqi(
+    values: np.ndarray, probs: np.ndarray, no_of_bins: int, state: int
+) -> Tuple[np.ndarray, np.ndarray, int]:
     """Project equisdistantly. Return bins."""
     v_min: np.float64
     v_max: np.float64
     v_min, v_max = np.min(values), np.max(values)
 
-    bins: np.ndarray = np.digitize(values,
-                                   np.linspace(v_min, v_max, no_of_bins))
-    return bins, no_of_bins
+    bin_values: np.ndarray = np.linspace(v_min, v_max, no_of_bins)
+    assert bin_values.size == no_of_bins, "wrong number of bins."
+    bins: np.ndarray = np.digitize(values, bin_values)
+    return bins, bin_values, no_of_bins
 
 
 # @njit
 # @apply_projection
 # def project(values: np.ndarray, probs: np.ndarray, iteration: int,
-            # bin_func: Callable) -> Tuple[np.ndarray, np.ndarray]:
-    # """General projection function."""
-    # v_min, v_max = np.max(values), np.min(values)
-# 
-    # bins: np.ndarray = bin_func(values, probs, iteration)
-    # return bins, bins
-# 
-    # # TODO continue here
-# 
-    # proj_values: np.ndarray = np.linspace(v_min, v_max, iteration)
-    # proj_probs: np.ndarray = np.zeros(iteration)
-    # return proj_values, proj_probs
+# bin_func: Callable) -> Tuple[np.ndarray, np.ndarray]:
+# """General projection function."""
+# v_min, v_max = np.max(values), np.min(values)
+#
+# bins: np.ndarray = bin_func(values, probs, iteration)
+# return bins, bins
+#
+# # TODO continue here
+#
+# proj_values: np.ndarray = np.linspace(v_min, v_max, iteration)
+# proj_probs: np.ndarray = np.zeros(iteration)
+# return proj_values, proj_probs
+
+
+def simulate_update(
+    time_steps: int, num_samples: int, return_distr
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Simulate update of return distribution."""
+    samples: np.ndarray = np.asarray([return_distr.rvs() for _ in range(num_samples)])
+    approx_list: List = []
+    g_0: Tuple[np.ndarray, np.ndarray] = (np.random.random(2), np.array([0.5, 0.5]))
+
+    emp_distr: Tuple[np.ndarray, np.ndarray] = (
+        samples,
+        np.ones(num_samples) / num_samples,
+    )
+    for t in range(time_steps):
+        g_t: Tuple[np.ndarray, np.ndarray] = conv_jit(emp_distr, approx_list[-1])
+        g_t = project_eqi(values=g_t[0], probs=g_t[1], no_of_bins=(t + 1) * 10, state=1)
+        approx_list.append(g_t)
+
+    return approx_list[-1]
 
 
 def main():
@@ -131,5 +161,12 @@ if __name__ == "__main__":
     b = (b_val, b_probs)
 
     c = conv(a, b)
+    vals = np.linspace(0, 100, 1000)
+    ps = np.ones(1000) * 1 / 1000
+    # apply_projection(project_eqi)(values=vals, probs=ps, no_of_bins=10, state=1)
+    new_vals, new_probs = project_eqi(values=vals, probs=ps, no_of_bins=10, state=1)
 
-    # main()
+    print(new_vals, new_probs)
+    print(np.sum(new_probs))
+    print("completed binning.")
+    # Main()
