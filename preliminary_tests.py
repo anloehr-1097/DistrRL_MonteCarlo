@@ -34,7 +34,7 @@ class RV_Discrete:
 
     def __init__(self, xk, pk) -> None:
         """Initialize discrete random variable."""
-        self.xk: np.ndarray = xk
+        self.xk: np.darray = xk
         self.pk: np.ndarray = pk
 
 
@@ -62,8 +62,7 @@ def conv_jit(a: Tuple[np.ndarray, np.ndarray],
     return new_val, probs
 
 
-@njit
-def apply_projection(func: Callable, *args, **kwargs) -> Callable:
+def apply_projection(func: Callable) -> Callable:
     """Apply binning as returned from func.
 
     Assumes that kwargs["probs"] is in kwargs.
@@ -78,7 +77,7 @@ def apply_projection(func: Callable, *args, **kwargs) -> Callable:
 
         for i in range(no_of_bins):
             new_values[i] = np.count_nonzero(bins == i)
-            new_probs[i] = np.sum(kwargs["probs"][bins == i])
+            new_probs[i] = np.sum(kargs["probs"][bins == i])
         return new_values, new_probs
 
     return apply_projection_inner
@@ -98,21 +97,21 @@ def project_eqi(values: np.ndarray, probs: np.ndarray, no_of_bins: int,
     return bins, no_of_bins
 
 
-@njit
-@apply_projection
-def project(values: np.ndarray, probs: np.ndarray, iteration: int,
-            bin_func: Callable) -> Tuple[np.ndarray, np.ndarray]:
-    """General projection function."""
-    v_min, v_max = np.max(values), np.min(values)
-
-    bins: np.ndarray = bin_func(values, probs, iteration)
-    return bins, bins
-
-    # TODO continue here
-
-    proj_values: np.ndarray = np.linspace(v_min, v_max, iteration)
-    proj_probs: np.ndarray = np.zeros(iteration)
-    return proj_values, proj_probs
+# @njit
+# @apply_projection
+# def project(values: np.ndarray, probs: np.ndarray, iteration: int,
+            # bin_func: Callable) -> Tuple[np.ndarray, np.ndarray]:
+    # """General projection function."""
+    # v_min, v_max = np.max(values), np.min(values)
+# 
+    # bins: np.ndarray = bin_func(values, probs, iteration)
+    # return bins, bins
+# 
+    # # TODO continue here
+# 
+    # proj_values: np.ndarray = np.linspace(v_min, v_max, iteration)
+    # proj_probs: np.ndarray = np.zeros(iteration)
+    # return proj_values, proj_probs
 
 
 def main():
