@@ -123,8 +123,9 @@ def apply_projection(func: Callable) -> Callable:
         for i in range(no_of_bins):
             new_probs[i] = np.sum(kwargs["probs"][bins == i])
             # TODO: ensure that probs sum to 1, other behviour
-            rem: np.float64 = 1 - np.sum(new_probs)
-            new_probs[random.randint(0, no_of_bins - 1)] += rem
+
+        rem: np.float64 = 1 - np.sum(new_probs)
+        new_probs[random.randint(0, no_of_bins - 1)] += rem
 
         return bin_values, new_probs
 
