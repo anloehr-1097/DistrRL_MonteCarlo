@@ -8,7 +8,7 @@ from typing import Callable, Dict, List, Sequence, Tuple
 
 import numpy as np
 import scipy.stats as sp
-from numba import njit
+from numba import njit, jit
 
 STATES = {1, 2}
 ACTIONS = {1, 2, 3, 4}
@@ -71,15 +71,37 @@ def aggregate_conv_results(distr: Tuple[np.ndarray, np.ndarray]) -> Tuple[np.nda
     Sum up probabilities of same values.
     """
 
-    values: np.ndarray = np.unique(distr[0])
-    probs: np.ndarray = np.zeros(values.size)
 
-    for i, val in enumerate(values):
-        probs[i] = np.sum(distr[1][distr[0] == val])
+    val_sorted_indices: np.ndarray = np.argsort(distr[0])  # n log n
+    val_sorted: np.ndarray = distr[0][val_sorted_indices]
+    probs_sorted: np.ndarray = distr[1][val_sorted_indices]
 
-    return values, probs
+    ret_dist_v: List = []
+    ret_dist_p: List = []
+    current: int = 0
+    i: int = 1
+    ret_dist_v.append(val_sorted[current])
+    ret_dist_p.append(probs_sorted[current])
 
 
+
+    for i in range(1, distr[0].size):
+        if np.abs(val_sorted[i] - val_sorted[i - 1]) < 1e-10:
+            probs_sorted[current] += probs_sorted[i]
+        else:
+            ret_dist_v.append(val_sorted[i])
+            ret_dist_p.append(probs_sorted[i])
+            current = i
+        
+        
+    # values: np.ndarray = np.unique(distr[0])
+    # probs: np.ndarray = np.zeros(values.size)
+
+    # for i, val in enumerate(values):
+        # probs[i] = np.sum(distr[1][distr[0] == val])
+    # return values, probs
+
+    return np.asarray(ret_dist_v), np.asarray(ret_dist_p)
 
 
 def apply_projection(func: Callable) -> Callable:
