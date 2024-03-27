@@ -9,6 +9,7 @@ from typing import Callable, Dict, List, Sequence, Tuple
 import numpy as np
 import scipy.stats as sp
 from numba import njit, jit
+import matplotlib.pyplot as plt
 
 STATES = {1, 2}
 ACTIONS = {1, 2, 3, 4}
@@ -27,6 +28,7 @@ class MDP:
 
     def __init__(self, states: Sequence, actions: Sequence, rewards: Dict):
         """Initialize MDP."""
+
         pass
 
 
@@ -35,7 +37,7 @@ class RV_Discrete:
 
     def __init__(self, xk, pk) -> None:
         """Initialize discrete random variable."""
-        self.xk: np.darray = xk
+        self.xk: np.ndarray = xk
         self.pk: np.ndarray = pk
 
 
@@ -144,50 +146,57 @@ def project_eqi(
     breadth: np.float64 = v_max - v_min
     breadth /= no_of_bins
 
-
-
     bin_values: np.ndarray = np.linspace(v_min-breadth, v_max+breadth, no_of_bins)
     assert bin_values.size == no_of_bins, "wrong number of bins."
     bins: np.ndarray = np.digitize(values, bin_values)
     return bins, bin_values, no_of_bins
 
 
-# @njit
-# @apply_projection
-# def project(values: np.ndarray, probs: np.ndarray, iteration: int,
-# bin_func: Callable) -> Tuple[np.ndarray, np.ndarray]:
-# """General projection function."""
-# v_min, v_max = np.max(values), np.min(values)
-#
-# bins: np.ndarray = bin_func(values, probs, iteration)
-# return bins, bins
-#
-# # TODO continue here
-#
-# proj_values: np.ndarray = np.linspace(v_min, v_max, iteration)
-# proj_probs: np.ndarray = np.zeros(iteration)
-# return proj_values, proj_probs
-
-
 def simulate_update(
-    time_steps: int, num_samples: int, return_distr
+        time_steps: int, num_samples: int,
+        return_distr: sp.stats.rv_frozen,
+        proj_func: Callable
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Simulate update of return distribution."""
-    samples: np.ndarray = np.asarray([return_distr.rvs() for _ in range(num_samples)])
-    approx_list: List = []
-    g_0: Tuple[np.ndarray, np.ndarray] = (np.random.random(2), np.array([0.5, 0.5]))
 
+    # sample indepenent samples and create empirical distribution
+    samples: np.ndarray = np.asarray([return_distr.rvs() for _ in range(num_samples)])
     emp_distr: Tuple[np.ndarray, np.ndarray] = (
         samples,
         np.ones(num_samples) / num_samples,
     )
+
+    approx_list: List = []
+    # start with some random intial aggregate return distribution
+    num_elements_g0: int = np.random.randint(1, 100)
+    rand_values: np.ndarray = np.random.random(num_elements_g0)
+
+    g_0: Tuple[np.ndarray, np.ndarray] = (rand_values, rand_values / np.sum(rand_values))
+
     for t in range(time_steps):
         g_t: Tuple[np.ndarray, np.ndarray] = conv_jit(emp_distr, approx_list[-1])
-        g_t = project_eqi(values=g_t[0], probs=g_t[1], no_of_bins=(t + 1) * 10, state=1)
+        g_t = proj_func(values=g_t[0], probs=g_t[1], no_of_bins=(t + 1) * 10, state=1)
         approx_list.append(g_t)
 
     return approx_list[-1]
 
+
+
+def plot_atomic_distr(distr: Tuple[np.ndarray, np.ndarray]) -> None:
+    """Plot atomic distribution."""
+    num_atom: int = distr[0].size
+    x_min: np.float64 = np.min(distr[0])
+    x_max: np.float64 = np.max(distr[0])
+
+    bins: np.ndarray = np.digitize(distr[0], np.linspace(x_min, x_max, num_atom // 10))
+    new_vals: np.ndarray
+    new_probs: np.ndarray
+    new_vals, new_probs = project_eqi(values=distr[0], probs=distr[1], no_of_bins=num_atom // 10, state=1)
+
+    plt.bar(new_vals, new_probs)
+    # plt.show()
+    return None
+  
 
 def main():
     """Call main function."""
@@ -214,4 +223,4 @@ if __name__ == "__main__":
     print(new_vals, new_probs)
     print(np.sum(new_probs))
     print("completed binning.")
-    # Main()
+    # main()
