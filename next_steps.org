@@ -1,0 +1,8 @@
+* performance
+- cuda kernel for aggreation
+- cuda kernel for convolution
+
+* logic
+- MDP class, simulator
+- better model than the one currently used, something with discount factor and so on
+  -> see paper for a good example (disc. normal distr)
