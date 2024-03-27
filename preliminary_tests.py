@@ -64,6 +64,24 @@ def conv_jit(
     return new_val, probs
 
 
+@njit
+def aggregate_conv_results(distr: Tuple[np.ndarray, np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
+    """Aggregate results of convolution.
+
+    Sum up probabilities of same values.
+    """
+
+    values: np.ndarray = np.unique(distr[0])
+    probs: np.ndarray = np.zeros(values.size)
+
+    for i, val in enumerate(values):
+        probs[i] = np.sum(distr[1][distr[0] == val])
+
+    return values, probs
+
+
+
+
 def apply_projection(func: Callable) -> Callable:
     """Apply binning as returned from func.
 
