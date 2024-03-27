@@ -141,8 +141,12 @@ def project_eqi(
     v_min: np.float64
     v_max: np.float64
     v_min, v_max = np.min(values), np.max(values)
+    breadth: np.float64 = v_max - v_min
+    breadth /= no_of_bins
 
-    bin_values: np.ndarray = np.linspace(v_min, v_max, no_of_bins)
+
+
+    bin_values: np.ndarray = np.linspace(v_min-breadth, v_max+breadth, no_of_bins)
     assert bin_values.size == no_of_bins, "wrong number of bins."
     bins: np.ndarray = np.digitize(values, bin_values)
     return bins, bin_values, no_of_bins
