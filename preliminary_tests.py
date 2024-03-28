@@ -157,6 +157,8 @@ def apply_projection(func: Callable) -> Callable:
         rem: np.float64 = 1 - np.sum(new_probs)
         new_probs[random.randint(0, no_of_bins - 1)] += rem
 
+        # aufsummierren, durh  Summe  teilen
+
         return bin_values, new_probs
 
     return apply_projection_inner
@@ -254,6 +256,12 @@ def main():
         (3, 1) : sp.norm(loc=0, scale=0.5).rvs(N),
     }
     gamma: np.float64 = 0.7
+    initial_return: Dict[int, Tuple[np.ndarray, np.ndarray]] = {
+        1: (Rewards[], np.ones(N) / N),
+        
+
+
+    }
 
     # policy
     def pi(s: int, a: int, s_prime: int) -> np.float64:
@@ -262,6 +270,21 @@ def main():
             case (2, 1, 3): return 1.0
             case (3, 1, 1): return 1.0
             case _: return 0.0
+
+
+    # re
+    for i in range(T):
+        for s in S:
+            for s_prime in S:
+                # sample from return distribution
+                # update return distribution
+                # update approx return distribution
+                pass
+
+
+            
+
+
     
 
 
