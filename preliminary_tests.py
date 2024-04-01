@@ -33,23 +33,6 @@ DEBUG = True
 # define random bellman operator as partial function
 
 
-class MDP:
-    """Markov decision process."""
-
-    def __init__(self, states: Sequence, actions: Mapping, rewards: CategoricalRewardDistr,
-                 terminal_states: Optional[Sequence[int]]=None):
-        """Initialize MDP."""
-        self.states: Dict = {i: s for i, s in enumerate(states)}
-        self.actions: Sequence = actions
-        self.rewards: CategoricalRewardDistr = rewards
-        self.current_policy: Optional[Policy] = None
-        self.terminal_states: Optional[Sequence[int]] = terminal_states
-
-
-    def set_policy(self, policy: Policy) -> None:
-        """Set policy."""
-        self.current_policy = policy
-    
 
 
 class Policy:
@@ -73,6 +56,22 @@ class Policy:
         return self.probs[key]
 
 
+class TransitionKernel:
+    """Transition kernel for MDP."""
+    def __init__(self, states: Sequence, actions: Sequence, probs: Dict[int, np.ndarray]):
+        """Initialize transition kernel."""
+        for state in states:
+            assert probs[state].size == len(actions), "action - distr mismatch."
+
+        self.states: Sequence[int] = states
+        self.actions: Sequence[int] = actions
+        self.probs: Dict[int, np.ndarray] = probs  # indexing with state
+           
+    def __getitem__(self, key: int) -> np.ndarray: 
+        """Return distribution over actions for given state."""
+        return self.probs[key]
+
+
 class RV_Discrete:
     """Discrete atomic random variable."""
 
@@ -80,6 +79,9 @@ class RV_Discrete:
         """Initialize discrete random variable."""
         self.xk: np.ndarray = xk
         self.pk: np.ndarray = pk
+
+    def distr(self):
+        return self.xk, self.pk
 
 
 class CategoricalDistrCollection:
@@ -92,21 +94,50 @@ class CategoricalDistrCollection:
     def __getitem__(self, key: int) -> Tuple[np.ndarray, np.ndarray]:
         """Return distribution for state."""
         return self.distr[key]
-    
+
 
 class CategoricalRewardDistr:
     """Return Distribution with finite support."""
 
-    def __init__(self, state_action_pairs: List[Tuple[int, int, int], distributions: List[RV_Discrete]]) -> None:
+    def __init__(self, state_action_pairs: List[Tuple[int, int, int]],
+                 distributions: List[RV_Discrete]) -> None:
+        """Initialize return distribution."""
         self.returns: Dict[Tuple[int, int, int], RV_Discrete] = \
             {s: d for s, d in zip(state_action_pairs, distributions)}
 
     def __getitem__(self, key: Tuple[int, int, int]) -> RV_Discrete:
         """Return RV_Discrete for (state, action, next_state) triple."""
         return self.returns[key]
-           
-        
-def categorical_dbo(mdp: MDP, pi: Policy, cat_distr_col: CategoricalDistrCollection) -> \
+
+
+class MDP:
+    """Markov decision process."""
+
+    # def __init__(self, states: Sequence, actions: Mapping, rewards: CategoricalRewardDistr,
+    #              transition_probs: TransitionKernel,terminal_states: Optional[Sequence[int]]=None):
+    def __init__(self, states: Sequence, actions: Mapping, rewards: RV_Discrete,
+                 transition_probs: TransitionKernel,
+                 terminal_states: Optional[Sequence[int]] = None, gamma: np.float64 = 0.5):
+        """Initialize MDP."""
+        self.states: Dict = {i: s for i, s in enumerate(states)}
+        self.actions: Sequence = actions
+        self.rewards: CategoricalRewardDistr = rewards
+        # self.rewards: RV_Discrete = rewards
+        self.trasition_probs: TransitionKernel = transition_probs
+        self.current_policy: Optional[Policy] = None
+        self.terminal_states: Optional[Sequence[int]] = terminal_states
+        self.gamma: np.float64 = gamma
+
+    def set_policy(self, policy: Policy) -> None:
+        """Set policy."""
+        self.current_policy = policy
+
+
+######################
+# Algorithm 5.1      #
+######################
+def categorical_dbo(mdp: MDP, pi: Policy,
+                    cat_distr_col: CategoricalDistrCollection) -> \
         CategoricalDistrCollection:
     """Run Algorithm 5.1 categorical distributional bellman operator from book.
 
@@ -120,31 +151,39 @@ def categorical_dbo(mdp: MDP, pi: Policy, cat_distr_col: CategoricalDistrCollect
 
         ensure that all states in collection are states in the mdp
     """
-
     # initialize
     for state in cat_distr_col.states:
-        current_distr: Tuple[np.ndarray, np.ndarray] = cat_distr_col[state]
+        # current_distr: Tuple[np.ndarray, np.ndarray] = cat_distr_col[state]
         # new_distr: Tuple[np.ndarray, np.ndarray] = np.zeros_like(current_distr)
         new_vals: List = []
         new_probs: List = []
 
-        for action in policiy[state]:
-
+        for action in mdp.actions:
             for next_state in mdp.states:
+                reward_distr = mdp.rewards[(state, action, next_state)]
+                prob = pi[state][action] * mdp.trasition_probs[state][action][next_state]
+
                 if next_state in mdp.terminal_states:
-                    pass
-                # 
+                    # new_vals.append(mdp.rewards[(state, action, next_state)].xk)
+                    # conv_jit(cat_distr_col[state], reward_distr)
+                    new_vals.append(reward_distr.xk)
+                    new_probs.append(reward_distr.pk * prob)
                 else:
-                    pass
+                    distr_update: Tuple[np.ndarray, np.ndarray] = \
+                        conv_jit(scale(cat_distr_col[next_state],
+                                       mdp.gamma),
+                                 reward_distr.distr())
+                    new_vals.append(distr_update[0])
+                    new_probs.append(distr_update[1] * prob)
+        cat_distr_col[state] = (np.concatenate(new_vals),
+                                np.concatenate(new_probs))
+                   
 
-        vals: List = []
-        probs: List = []
-        # d: Tuple[np.ndarray, np.ndarray] = 
-        for action in [state]:
 
-        
-    
-      
+def scale(distr: RV_Discrete, gamma: np.float64) -> RV_Discrete:
+    """Scale distribution by factor."""
+    distr.xk *= gamma
+    return distr
 
 
 def conv(
@@ -360,21 +399,12 @@ def main():
         (3, 1) : sp.norm(loc=0, scale=0.5).rvs(N),
     }
     gamma: np.float64 = 0.7
-    initial_return: Dict[int, Tuple[np.ndarray, np.ndarray]] = {
-        1: (Rewards[], np.ones(N) / N),
+    # initial_return: Dict[int, Tuple[np.ndarray, np.ndarray]] = {
+        #1: (Rewards[], np.ones(N) / N),
         
 
 
-    }
-
-    # policy
-    def pi(s: int, a: int, s_prime: int) -> np.float64:
-        match (s, a, s_prime):
-            case (1, 1, 2): return 1.0
-            case (2, 1, 3): return 1.0
-            case (3, 1, 1): return 1.0
-            case _: return 0.0
-
+    #}
 
     # re
     for i in range(T):
@@ -384,12 +414,7 @@ def main():
                 # update return distribution
                 # update approx return distribution
                 pass
-
-
-            
-
-
-    
+    return None
 
 
 if __name__ == "__main__":
