@@ -4,8 +4,7 @@
 
 
 import random
-from typing import Callable, Dict, List, Sequence, Tuple, Collection
-
+from typing import Callable, Dict, List, Sequence, Tuple, Collection, Mapping, Optional
 import numpy as np
 import scipy.stats as sp
 from numba import njit, jit
@@ -13,8 +12,17 @@ import matplotlib.pyplot as plt
 import time
 
 
-STATES = {1, 2}
-ACTIONS = {1, 2, 3, 4}
+
+# States: Dict[int, AnyType] holding possibly holding state representation as vector
+# Actions: Dict[int, Tuple[List[int], List[float]]] holding possible actions, probablity pairs for each state 
+
+
+
+STATES: Mapping = {1: 1, 2: 2, 3: 3} # states, potentially more complex this mapping
+ACTIONS: Mapping = {1: ([2], [1.0]), 2: ([3], [1.0]), 3: ([1], [1.0])}
+REWARDS: Mapping = {(1, 2): ([-3, 1], [0.5, 0.5]), (2, 3): ([5, 2], [0.5, 0.5]), (3, 1): ([0, 0.5], [0.5, 0.5])}
+
+
 DEBUG = True
 # need some initial collection of distrs for the total reward =: nu^0
 # need some return distributons
@@ -28,10 +36,41 @@ DEBUG = True
 class MDP:
     """Markov decision process."""
 
-    def __init__(self, states: Sequence, actions: Sequence, rewards: Dict):
+    def __init__(self, states: Sequence, actions: Mapping, rewards: CategoricalRewardDistr,
+                 terminal_states: Optional[Sequence[int]]=None):
         """Initialize MDP."""
+        self.states: Dict = {i: s for i, s in enumerate(states)}
+        self.actions: Sequence = actions
+        self.rewards: CategoricalRewardDistr = rewards
+        self.current_policy: Optional[Policy] = None
+        self.terminal_states: Optional[Sequence[int]] = terminal_states
 
-        pass
+
+    def set_policy(self, policy: Policy) -> None:
+        """Set policy."""
+        self.current_policy = policy
+    
+
+
+class Policy:
+    def __init__(self, states: Mapping, actions: Sequence, probs: Dict[int, np.ndarray]):
+        """Initialize policy.
+
+        Args:
+            states: Mapping of states
+            actions: Sequence of actions
+            probs: Mapping of state, distribution pairs. Each distribution is a numpy array.
+                each entry in the numpy array corresponds to the probability of the action at the same index.
+        """
+
+        self.states: Mapping = states
+        self.actions: Sequence = actions
+        self.probs: Dict[int, np.ndarray] = probs
+           
+    def __getitem__(self, key: int): 
+        """Return distribution over actions for given state."""
+        assert self.probs[key].size == len(self.actions), "action - distr mismatch."
+        return self.probs[key]
 
 
 class RV_Discrete:
@@ -41,6 +80,71 @@ class RV_Discrete:
         """Initialize discrete random variable."""
         self.xk: np.ndarray = xk
         self.pk: np.ndarray = pk
+
+
+class CategoricalDistrCollection:
+    def __init__(self, states: Sequence[int],
+                 distributions: List[Tuple(np.ndarray, np.ndarray)]) -> None:
+        """Initialize collection of categorical distributions."""
+        self.states: Sequence = states
+        self.distr: Dict = {s: distributions[i] for i, s in enumerate(states)}
+
+    def __getitem__(self, key: int) -> Tuple[np.ndarray, np.ndarray]:
+        """Return distribution for state."""
+        return self.distr[key]
+    
+
+class CategoricalRewardDistr:
+    """Return Distribution with finite support."""
+
+    def __init__(self, state_action_pairs: List[Tuple[int, int, int], distributions: List[RV_Discrete]]) -> None:
+        self.returns: Dict[Tuple[int, int, int], RV_Discrete] = \
+            {s: d for s, d in zip(state_action_pairs, distributions)}
+
+    def __getitem__(self, key: Tuple[int, int, int]) -> RV_Discrete:
+        """Return RV_Discrete for (state, action, next_state) triple."""
+        return self.returns[key]
+           
+        
+def categorical_dbo(mdp: MDP, pi: Policy, cat_distr_col: CategoricalDistrCollection) -> \
+        CategoricalDistrCollection:
+    """Run Algorithm 5.1 categorical distributional bellman operator from book.
+
+    Simple implementation of Algorithm 5.1 from the book without
+    performance optimizations.
+
+    Prerequisites:
+        finite state space
+        finite action space
+        rewards with finite support
+
+        ensure that all states in collection are states in the mdp
+    """
+
+    # initialize
+    for state in cat_distr_col.states:
+        current_distr: Tuple[np.ndarray, np.ndarray] = cat_distr_col[state]
+        # new_distr: Tuple[np.ndarray, np.ndarray] = np.zeros_like(current_distr)
+        new_vals: List = []
+        new_probs: List = []
+
+        for action in policiy[state]:
+
+            for next_state in mdp.states:
+                if next_state in mdp.terminal_states:
+                    pass
+                # 
+                else:
+                    pass
+
+        vals: List = []
+        probs: List = []
+        # d: Tuple[np.ndarray, np.ndarray] = 
+        for action in [state]:
+
+        
+    
+      
 
 
 def conv(
@@ -69,7 +173,7 @@ def time_it(debug: bool) -> Callable:
                 start: float = time.time()
                 ret_val = func(*args, **kwargs)
                 end: float = time.time()
-                if "time_step" in **kwargs:
+                if "time_step" in dict(**kwargs).keys():
                     print(f"Time taken for time step {kwargs['time_step']}: {end-start}")
                 else:
                     print(f"Time taken: {end-start}")
