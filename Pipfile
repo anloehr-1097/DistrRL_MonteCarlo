@@ -8,6 +8,7 @@ scipy = "*"
 python-lsp-server = {version = "*", extras = ["all"]}
 matplotlib = "*"
 numba = "*"
+torch = "*"
 
 [dev-packages]
 ipykernel = "*"

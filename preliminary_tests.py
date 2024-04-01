@@ -4,7 +4,7 @@
 
 
 import random
-from typing import Callable, Dict, List, Sequence, Tuple
+from typing import Callable, Dict, List, Sequence, Tuple, Collection
 
 import numpy as np
 import scipy.stats as sp
@@ -69,7 +69,10 @@ def time_it(debug: bool) -> Callable:
                 start: float = time.time()
                 ret_val = func(*args, **kwargs)
                 end: float = time.time()
-                print(f"Time taken: {end-start}")
+                if "time_step" in **kwargs:
+                    print(f"Time taken for time step {kwargs['time_step']}: {end-start}")
+                else:
+                    print(f"Time taken: {end-start}")
                 return ret_val
             return time_it_inner
 
@@ -154,6 +157,8 @@ def apply_projection(func: Callable) -> Callable:
         rem: np.float64 = 1 - np.sum(new_probs)
         new_probs[random.randint(0, no_of_bins - 1)] += rem
 
+        # aufsummierren, durh  Summe  teilen
+
         return bin_values, new_probs
 
     return apply_projection_inner
@@ -192,6 +197,7 @@ def simulate_update(
     rand_values: np.ndarray = np.random.random(num_elements_g0)
 
     g_0: Tuple[np.ndarray, np.ndarray] = (rand_values, rand_values / np.sum(rand_values))
+    print(f"g_0: {g_0}")
     approx_list.append(g_0)
 
 
@@ -199,9 +205,11 @@ def simulate_update(
         # g_t: Tuple[np.ndarray, np.ndarray] = conv_jit(emp_distr, approx_list[-1])
         # g_t = proj_func(values=g_t[0], probs=g_t[1], no_of_bins=(t + 1) * 10, state=1)
         # approx_list.append(g_t)
-        g_t: Tuple[np.ndarray, np.ndarray] = simulate_one_step(reward_distr, approx_list[-1], t, proj_func)
-        approx_list.append(g_t)
+        g_t: Tuple[np.ndarray, np.ndarray] = \
+            simulate_one_step(reward_distr, approx_list[-1],
+                              time_step=t, proj_func=proj_func)
 
+        approx_list.append(g_t)
 
     return approx_list[-1]
 
@@ -222,11 +230,12 @@ def plot_atomic_distr(distr: Tuple[np.ndarray, np.ndarray]) -> None:
     x_min: np.float64 = np.min(distr[0])
     x_max: np.float64 = np.max(distr[0])
 
-    bins: np.ndarray = np.digitize(distr[0], np.linspace(x_min, x_max, num_atom // 10))
+    # bins: np.ndarray = np.digitize(distr[0], np.linspace(x_min, x_max, num_atom // 5))
     new_vals: np.ndarray
     new_probs: np.ndarray
-    new_vals, new_probs = project_eqi(values=distr[0], probs=distr[1], no_of_bins=num_atom // 10, state=1)
+    new_vals, new_probs = project_eqi(values=distr[0], probs=distr[1], no_of_bins=num_atom// 40, state=1)
 
+    # print(np.sum(new_probs))
     plt.bar(new_vals, new_probs)
     # plt.show()
     return None
@@ -234,9 +243,49 @@ def plot_atomic_distr(distr: Tuple[np.ndarray, np.ndarray]) -> None:
 
 def main():
     """Call main function."""
+    # using controlled experiment from paper
     # rt = sp.norm(loc=0, scale=1)
-    bernoulli_scaled = sp.rv_discrete(values=([-1, 1], [0.5, 0.5]))
-    print(bernoulli_scaled.rvs(size=10))
+    S: Collection= {1,2,3}
+    A: Collection = {1}
+    N: int = 100
+    T: int = 10
+
+    Rewards: Dict = {
+        (1, 2) : sp.norm(loc=-3, scale=1).rvs(N),
+        (2, 3) : sp.norm(loc=5, scale=2).rvs(N),
+        (3, 1) : sp.norm(loc=0, scale=0.5).rvs(N),
+    }
+    gamma: np.float64 = 0.7
+    initial_return: Dict[int, Tuple[np.ndarray, np.ndarray]] = {
+        1: (Rewards[], np.ones(N) / N),
+        
+
+
+    }
+
+    # policy
+    def pi(s: int, a: int, s_prime: int) -> np.float64:
+        match (s, a, s_prime):
+            case (1, 1, 2): return 1.0
+            case (2, 1, 3): return 1.0
+            case (3, 1, 1): return 1.0
+            case _: return 0.0
+
+
+    # re
+    for i in range(T):
+        for s in S:
+            for s_prime in S:
+                # sample from return distribution
+                # update return distribution
+                # update approx return distribution
+                pass
+
+
+            
+
+
+    
 
 
 if __name__ == "__main__":
