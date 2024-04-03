@@ -27,6 +27,7 @@ struct DD {
   }
 };
 
+
 void print_array(float *ar, int len){
 
   for (int i = 0; i < len; i++){
@@ -39,7 +40,8 @@ __global__ void convolution_kernel(float *p1, float *p2, float *p3, int size) {
   int j = blockIdx.y* blockDim.y + threadIdx.y;
   
   //p3[i] = p1[i] + p2[i];
-  if ((i + j) < size*size){
+  //if ((i + j) < size*size){
+  if (i  < size && j < size){
 
     p3[i * size + j] = p1[i] * p2[j];
   }
@@ -96,14 +98,44 @@ int check_alloc(T *ptr){
 
 
 void manual_convolution(float* p1, float* p2, float*p3, int len){
-  for (int i = 0; i<len; i++){
-    for (int j = 0; j<len; j++){
+  for (long i = 0; i<len; i++){
+    for (long j = 0; j<len; j++){
       p3[i * len + j] = p1[i] * p2[j];
   }
   }
 }
 
+
+int is_equal(float *p1, float *p2, long len){
+
+  std::cout << "is_equal called\n";
+
+  long wrong = 0;
+  for (long i = 0; i < len; i++){
+    if (std::abs(p1[i] - p2[i]) > 1e-6){
+      wrong += 1;
+    }
+    else{
+      continue;
+    }
+  }
+  std::cout << "is_equal comparison done\n";
+
+  if (wrong == 0) {
+
+    return 1;
+  }
+  else{
+    std::cout << "Wrong values at " << wrong <<" positions: ";
+    return 0;
+	}
+}
+
 int main() {
+
+  std::cout << "size of int: " << sizeof(int) << "\n";
+  std::cout << "size of long: " << sizeof(long) << "\n";
+  
 
 
   int deviceCount;
@@ -122,7 +154,7 @@ int main() {
   std::cout << "Max threads per block: " << prop.maxThreadsPerBlock << std::endl;
   std::cout << "Max threads dim: " << prop.maxThreadsDim[0] << " " << prop.maxThreadsDim[1] << " " << prop.maxThreadsDim[2] << std::endl;
 
-  size_t SIZE = 10;
+  size_t SIZE = 100000;
   size_t inp_size_alloc = SIZE * sizeof(float);
   size_t res_size_alloc = SIZE * SIZE * sizeof(float);
 
@@ -154,8 +186,8 @@ int main() {
 
   populate_with_randvalues(p1, SIZE);
   populate_with_randvalues(p2, SIZE);
-  print_array(p1, SIZE);
-  print_array(p2, SIZE);
+  //print_array(p1, SIZE);
+  //print_array(p2, SIZE);
 
   size_t free_mem, total_mem;
   cudaMemGetInfo(&free_mem, &total_mem);
@@ -186,40 +218,37 @@ int main() {
 
 
   //int num_threads = 512;
-  int num_threads = 5;
-  //int num_blocks = 5;
-  int num_blocks = std::ceil(SIZE / num_threads);
+  int num_threads = 128;
+  int num_blocks = 5;
+  //int num_blocks = std::ceil(SIZE / num_threads);
+  int num_blocks_x = (SIZE + num_threads - 1) / num_threads;
+  int num_blocks_y = (SIZE + num_threads - 1) / num_threads;
   dim3 ts(num_threads, num_threads, 1);
-  dim3 bs(num_blocks, num_blocks, 1);
-  std::cout << "Num blocks: " << num_blocks << std::endl;
+  dim3 bs(num_blocks_x, num_blocks_y, 1);
+  std::cout << "Num blocks: " << num_blocks_x << std::endl;
   std::cout << "Num threads: " << num_threads << std::endl;
   
   convolution_kernel<<<bs, ts>>>(d_p1, d_p2, d_p3, SIZE);
   //convolution_kernel<<<1, num_threads>>>(d_p1, d_p2, d_p3, SIZE);
+  std::cout << "Kernel executed\n";
 
   //convolution_kernel<<<bs, ts>>>(d_p1, d_p2, d_p3, num_threads);
   
   // print_array(p3, 10);
   cudaMemcpy(p3, d_p3, res_size_alloc, cudaMemcpyDeviceToHost);
-  print_array(p3, SIZE*SIZE);
+  //print_array(p3, SIZE*SIZE);
 
 
   manual_convolution(p1, p2, p3_manual, SIZE);
-  print_array(p3_manual, SIZE*SIZE);
+  std::cout << "Manual convolution exectuted\n";
+  //print_array(p3_manual, SIZE*SIZE);
 
+  if(is_equal(p3, p3_manual, SIZE*SIZE) == 0) std::cout << "Not Equal\n";
 
   float *p4 = (float *) malloc(SIZE * sizeof(float));
   *p4 = 0.0;
   add_kernel<<<1, num_threads>>>(d_p1, d_p2, d_p4, num_threads);
   cudaMemcpy(p4, d_p4, inp_size_alloc, cudaMemcpyDeviceToHost);
-
-  //print_array(p3, SIZE*SIZE);
-  //print_array(p4, 10);
-  // cudaFree(d_p1);
-  //cudaFree(d_p2);
-  //cudaFree(d_p3);
-  //delete p3;
-  //print_array(p1, SIZE);
-  //print_array(p2, SIZE);
+  std::cout << "Finished\n";
 
 }
