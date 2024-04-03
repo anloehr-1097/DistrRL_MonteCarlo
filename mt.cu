@@ -92,9 +92,15 @@ int check_alloc(T *ptr){
     std::cout << "Memory allocated successfully.\n";
     return 1;
   }
+}
 
 
-
+void manual_convolution(float* p1, float* p2, float*p3, int len){
+  for (int i = 0; i<len; i++){
+    for (int j = 0; j<len; j++){
+      p3[i * len + j] = p1[i] * p2[j];
+  }
+  }
 }
 
 int main() {
@@ -116,7 +122,7 @@ int main() {
   std::cout << "Max threads per block: " << prop.maxThreadsPerBlock << std::endl;
   std::cout << "Max threads dim: " << prop.maxThreadsDim[0] << " " << prop.maxThreadsDim[1] << " " << prop.maxThreadsDim[2] << std::endl;
 
-  size_t SIZE = 100;
+  size_t SIZE = 10;
   size_t inp_size_alloc = SIZE * sizeof(float);
   size_t res_size_alloc = SIZE * SIZE * sizeof(float);
 
@@ -142,6 +148,8 @@ int main() {
   check_alloc<float>(p2);
   float *p3 = (float *) malloc(res_size_alloc);
   check_alloc<float>(p3);
+  float *p3_manual = (float *) malloc(res_size_alloc);
+  check_alloc<float>(p3_manual);
 
 
   populate_with_randvalues(p1, SIZE);
@@ -194,6 +202,11 @@ int main() {
   // print_array(p3, 10);
   cudaMemcpy(p3, d_p3, res_size_alloc, cudaMemcpyDeviceToHost);
   print_array(p3, SIZE*SIZE);
+
+
+  manual_convolution(p1, p2, p3_manual, SIZE);
+  print_array(p3_manual, SIZE*SIZE);
+
 
   float *p4 = (float *) malloc(SIZE * sizeof(float));
   *p4 = 0.0;
