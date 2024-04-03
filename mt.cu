@@ -35,9 +35,11 @@ void print_array(float *ar, int len){
 }
 
 __global__ void convolution_kernel(float *p1, float *p2, float *p3, int size) {
-  //int i = threadIdx.x;
+  int i = threadIdx.x;
+  int j = threadIdx.y;
   
   //p3[i] = p1[i] + p2[i];
+  p3[i * size + j] = p1[i] * p2[j];
 
   //int i = threadIdx.x;
   //int j = threadIdx.y;
@@ -111,7 +113,10 @@ int main() {
   std::cout << "Max threads per block: " << prop.maxThreadsPerBlock << std::endl;
   std::cout << "Max threads dim: " << prop.maxThreadsDim[0] << " " << prop.maxThreadsDim[1] << " " << prop.maxThreadsDim[2] << std::endl;
 
-  size_t SIZE = 50;
+  size_t SIZE = 10;
+  size_t inp_size_alloc = SIZE * sizeof(float);
+  size_t res_size_alloc = SIZE * SIZE * sizeof(float);
+
   std::mt19937 r_gen{};
   
   std::uniform_real_distribution<double> dist(0.0, 1.0);
@@ -126,13 +131,13 @@ int main() {
   //DD d2(xs, ps, 5);
 
 
-  float *p1 = (float *) malloc(SIZE * sizeof(float));
-  float *p2 = (float *) malloc(SIZE * sizeof(float));
+  float *p1 = (float *) malloc(inp_size_alloc);
+  float *p2 = (float *) malloc(inp_size_alloc);
   //float p1[SIZE] = {0.0};
   check_alloc<float>(p1);
   //float p2[SIZE] = {0.0};
   check_alloc<float>(p2);
-  float *p3 = (float *) malloc(SIZE*SIZE * sizeof(float));
+  float *p3 = (float *) malloc(res_size_alloc);
   check_alloc<float>(p3);
 
 
@@ -145,13 +150,6 @@ int main() {
   cudaMemGetInfo(&free_mem, &total_mem);
   std::cout << "Free memory: " << free_mem << std::endl;
   std::cout << "Total memory: " << total_mem << std::endl;
-
-  //float p3[25] = {0.0, 0.0, 0.0, 0.0, 0.0};
-  // d1.print();
-  // convolution(d1, d2);
-
-  size_t inp_size_alloc = SIZE * sizeof(float);
-  size_t res_size_alloc = SIZE * SIZE * sizeof(float);
 
   float *d_p1;
   cudaMalloc(&d_p1, inp_size_alloc);
@@ -179,17 +177,19 @@ int main() {
   //int num_threads = 512;
   int num_threads = SIZE;
   int num_blocks = std::ceil(SIZE / num_threads);
-  dim3 ts(num_threads, num_threads);
+  dim3 ts(num_threads, num_threads, 1);
   dim3 bs(num_blocks, num_blocks);
   std::cout << "Num blocks: " << num_blocks << std::endl;
   std::cout << "Num threads: " << num_threads << std::endl;
   
-  //convolution_kernel<<<bs, ts>>>(d_p1, d_p2, d_p3, 5);
+  convolution_kernel<<<1, ts>>>(d_p1, d_p2, d_p3, SIZE);
+  //convolution_kernel<<<1, num_threads>>>(d_p1, d_p2, d_p3, SIZE);
 
   //convolution_kernel<<<bs, ts>>>(d_p1, d_p2, d_p3, num_threads);
   
-  //print_array(p3, 10);
-  //cudaMemcpy(p3, d_p3, res_size_alloc, cudaMemcpyDeviceToHost);
+  // print_array(p3, 10);
+  cudaMemcpy(p3, d_p3, res_size_alloc, cudaMemcpyDeviceToHost);
+  print_array(p3, 100);
 
   float *p4 = (float *) malloc(SIZE * sizeof(float));
   *p4 = 0.0;
@@ -197,8 +197,7 @@ int main() {
   cudaMemcpy(p4, d_p4, inp_size_alloc, cudaMemcpyDeviceToHost);
 
   //print_array(p3, SIZE*SIZE);
-  //print_array(p3, 10);
-  print_array(p4, 10);
+  //print_array(p4, 10);
   // cudaFree(d_p1);
   //cudaFree(d_p2);
   //cudaFree(d_p3);
