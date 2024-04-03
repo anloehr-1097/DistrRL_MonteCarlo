@@ -36,10 +36,11 @@ void print_array(float *ar, int len){
 
 __global__ void convolution_kernel(float *p1, float *p2, float *p3, int size) {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
-  int j = blockIdx.y * blockDim.y + threadIdx.y;
+  int j = blockIdx.y* blockDim.y + threadIdx.y;
   
   //p3[i] = p1[i] + p2[i];
-  if (i < size && j < size){
+  if ((i + j) < size*size){
+
     p3[i * size + j] = p1[i] * p2[j];
   }
 
@@ -177,22 +178,22 @@ int main() {
 
 
   //int num_threads = 512;
-  int num_threads = 20;
-  int num_blocks = 5;
-  //int num_blocks = std::ceil(SIZE / num_threads);
+  int num_threads = 5;
+  //int num_blocks = 5;
+  int num_blocks = std::ceil(SIZE / num_threads);
   dim3 ts(num_threads, num_threads, 1);
   dim3 bs(num_blocks, num_blocks, 1);
   std::cout << "Num blocks: " << num_blocks << std::endl;
   std::cout << "Num threads: " << num_threads << std::endl;
   
-  convolution_kernel<<<1, ts>>>(d_p1, d_p2, d_p3, num_threads);
+  convolution_kernel<<<bs, ts>>>(d_p1, d_p2, d_p3, SIZE);
   //convolution_kernel<<<1, num_threads>>>(d_p1, d_p2, d_p3, SIZE);
 
   //convolution_kernel<<<bs, ts>>>(d_p1, d_p2, d_p3, num_threads);
   
   // print_array(p3, 10);
   cudaMemcpy(p3, d_p3, res_size_alloc, cudaMemcpyDeviceToHost);
-  print_array(p3, 100);
+  print_array(p3, SIZE*SIZE);
 
   float *p4 = (float *) malloc(SIZE * sizeof(float));
   *p4 = 0.0;
