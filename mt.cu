@@ -39,7 +39,9 @@ __global__ void convolution_kernel(float *p1, float *p2, float *p3, int size) {
   int j = blockIdx.y * blockDim.y + threadIdx.y;
   
   //p3[i] = p1[i] + p2[i];
-  p3[i * size + j] = p1[i] * p2[j];
+  if (i < size && j < size){
+    p3[i * size + j] = p1[i] * p2[j];
+  }
 
   //int i = threadIdx.x;
   //int j = threadIdx.y;
