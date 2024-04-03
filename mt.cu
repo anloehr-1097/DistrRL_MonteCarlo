@@ -35,8 +35,8 @@ void print_array(float *ar, int len){
 }
 
 __global__ void convolution_kernel(float *p1, float *p2, float *p3, int size) {
-  int i = threadIdx.x;
-  int j = threadIdx.y;
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  int j = blockIdx.y * blockDim.y + threadIdx.y;
   
   //p3[i] = p1[i] + p2[i];
   p3[i * size + j] = p1[i] * p2[j];
@@ -113,7 +113,7 @@ int main() {
   std::cout << "Max threads per block: " << prop.maxThreadsPerBlock << std::endl;
   std::cout << "Max threads dim: " << prop.maxThreadsDim[0] << " " << prop.maxThreadsDim[1] << " " << prop.maxThreadsDim[2] << std::endl;
 
-  size_t SIZE = 10;
+  size_t SIZE = 100;
   size_t inp_size_alloc = SIZE * sizeof(float);
   size_t res_size_alloc = SIZE * SIZE * sizeof(float);
 
@@ -143,8 +143,8 @@ int main() {
 
   populate_with_randvalues(p1, SIZE);
   populate_with_randvalues(p2, SIZE);
-  print_array(p1, 10);
-  print_array(p2, 10);
+  print_array(p1, SIZE);
+  print_array(p2, SIZE);
 
   size_t free_mem, total_mem;
   cudaMemGetInfo(&free_mem, &total_mem);
@@ -175,14 +175,15 @@ int main() {
 
 
   //int num_threads = 512;
-  int num_threads = SIZE;
-  int num_blocks = std::ceil(SIZE / num_threads);
+  int num_threads = 20;
+  int num_blocks = 5;
+  //int num_blocks = std::ceil(SIZE / num_threads);
   dim3 ts(num_threads, num_threads, 1);
-  dim3 bs(num_blocks, num_blocks);
+  dim3 bs(num_blocks, num_blocks, 1);
   std::cout << "Num blocks: " << num_blocks << std::endl;
   std::cout << "Num threads: " << num_threads << std::endl;
   
-  convolution_kernel<<<1, ts>>>(d_p1, d_p2, d_p3, SIZE);
+  convolution_kernel<<<1, ts>>>(d_p1, d_p2, d_p3, num_threads);
   //convolution_kernel<<<1, num_threads>>>(d_p1, d_p2, d_p3, SIZE);
 
   //convolution_kernel<<<bs, ts>>>(d_p1, d_p2, d_p3, num_threads);
