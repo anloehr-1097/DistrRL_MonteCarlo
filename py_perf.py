@@ -10,10 +10,12 @@ def outer_mul(t1, t2):
 
 
 def main():
-    v1 = np.random.random(1000)
-    v2 = np.random.random(1000)
+    v1 = np.random.random(100000)
+    v1 = v1 / np.sum(v1)
+    v2 = np.random.random(100000)
+    v2 = v2 / np.sum(v2)
 
-    v3 = np.add(v1, v2)
+    # v3 = np.add(v1, v2)
     v4 = np.multiply(v1, v2)
 
     return None

@@ -239,16 +239,16 @@ int main() {
   //print_array(p3, SIZE*SIZE);
 
 
-  manual_convolution(p1, p2, p3_manual, SIZE);
-  std::cout << "Manual convolution exectuted\n";
+  //manual_convolution(p1, p2, p3_manual, SIZE);
+  //std::cout << "Manual convolution exectuted\n";
   //print_array(p3_manual, SIZE*SIZE);
 
-  if(is_equal(p3, p3_manual, SIZE*SIZE) == 0) std::cout << "Not Equal\n";
+  //if(is_equal(p3, p3_manual, SIZE*SIZE) == 0) std::cout << "Not Equal\n"
 
-  float *p4 = (float *) malloc(SIZE * sizeof(float));
-  *p4 = 0.0;
-  add_kernel<<<1, num_threads>>>(d_p1, d_p2, d_p4, num_threads);
-  cudaMemcpy(p4, d_p4, inp_size_alloc, cudaMemcpyDeviceToHost);
-  std::cout << "Finished\n";
+  //float *p4 = (float *) malloc(SIZE * sizeof(float));
+  //*p4 = 0.0;
+  //add_kernel<<<1, num_threads>>>(d_p1, d_p2, d_p4, num_threads);
+  //cudaMemcpy(p4, d_p4, inp_size_alloc, cudaMemcpyDeviceToHost);
+  //std::cout << "Finished\n";
 
 }
