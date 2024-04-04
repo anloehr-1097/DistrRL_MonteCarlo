@@ -147,24 +147,25 @@ def categorical_dbo(mdp: MDP, pi: Policy,
 
         ensure that all states in collection are states in the mdp
     """
-    # initialize
+    ret_cat_distr_coll: 
+    ret_distr: List[Tuple[np.ndarray, np.ndarray]] = []
+
     for state in cat_distr_col.states:
-        # current_distr: Tuple[np.ndarray, np.ndarray] = cat_distr_col[state]
-        # new_distr: Tuple[np.ndarray, np.ndarray] = np.zeros_like(current_distr)
         new_vals: List = []
         new_probs: List = []
 
         for action in mdp.actions:
-            # possibly outsource this as function
+            # TODO possibly outsource this as function
             for next_state in mdp.states:
                 reward_distr = mdp.rewards[(state, action, next_state)]
-                prob = pi[state][action] * mdp.trasition_probs[state][action][next_state]
+                prob = pi[state][action] * \
+                    mdp.trasition_probs[state][action][next_state]
 
+                # if terminal state, no future rewards, only immediate
                 if next_state in mdp.terminal_states:
-                    # new_vals.append(mdp.rewards[(state, action, next_state)].xk)
-                    # conv_jit(cat_distr_col[state], reward_distr)
                     new_vals.append(reward_distr.xk)
                     new_probs.append(reward_distr.pk * prob)
+
                 else:
                     distr_update: Tuple[np.ndarray, np.ndarray] = \
                         conv_jit(scale(cat_distr_col[next_state],
@@ -172,8 +173,16 @@ def categorical_dbo(mdp: MDP, pi: Policy,
                                  reward_distr.distr())
                     new_vals.append(distr_update[0])
                     new_probs.append(distr_update[1] * prob)
-        cat_distr_col[state] = (np.concatenate(new_vals),
-                                np.concatenate(new_probs))
+
+
+        # ready to update \theta(x), store in list
+        ret_distr.append((np.concatenate(new_vals), np.concatenate(new_probs))
+
+    # final collection of distributions along all states
+    ret_cat_distr_coll: CategoricalDistrCollection = \
+                         CategoricalDistrCollection(states=cat_distr_col.states,
+                                                    distributions=ret_distr)
+    return ret_cat_distr_coll
 
 
 def scale(distr: RV_Discrete, gamma: np.float64) -> RV_Discrete:
