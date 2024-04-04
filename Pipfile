@@ -9,6 +9,8 @@ python-lsp-server = {version = "*", extras = ["all"]}
 matplotlib = "*"
 numba = "*"
 torch = "*"
+appnope = "*"
+nbstripout = "*"
 
 [dev-packages]
 ipykernel = "*"

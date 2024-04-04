@@ -81,6 +81,8 @@ class RV_Discrete:
 
 
 class CategoricalDistrCollection:
+    """Collection of categorical distributions."""
+    # TODO instead of using tuple directly, use RV_Discrete
     def __init__(self, states: Sequence[int],
                  distributions: List[Tuple(np.ndarray, np.ndarray)]) -> None:
         """Initialize collection of categorical distributions."""
@@ -147,7 +149,6 @@ def categorical_dbo(mdp: MDP, pi: Policy,
 
         ensure that all states in collection are states in the mdp
     """
-    ret_cat_distr_coll: 
     ret_distr: List[Tuple[np.ndarray, np.ndarray]] = []
 
     for state in cat_distr_col.states:
@@ -391,6 +392,24 @@ def plot_atomic_distr(distr: Tuple[np.ndarray, np.ndarray]) -> None:
 
 def main():
     """Call main function."""
+    states: List[int] = list(range(3))
+    actions: List[int] = list(range(3))
+    distribution_1: RV_Discrete = RV_Discrete(xk=np.array([-3, 1]), pk=np.array([0.5, 0.5])),
+    distribution_2: RV_Discrete = RV_Discrete(xk=np.array([-3, 1]), pk=np.array([0.5, 0.5])),
+    distribution_3: RV_Discrete = RV_Discrete(xk=np.array([-3, 1]), pk=np.array([0.5, 0.5])),
+    distributions: List[Tuple[np.ndarray, np.ndarray]] = [distribution_1, distribution_2, distribution_3]
+    total_reward_distr_estimate: CategoricalDistrCollection = CategoricalDistrCollection(states, distributions)
+    mdp: MDP(states, actions, rewards, transition_probs)
+
+    self.rewards: CategoricalRewardDistr = rewards
+    # self.rewards: RV_Discrete = rewards
+    self.trasition_probs: TransitionKernel = transition_probs
+    self.current_policy: Optional[Policy] = None
+    self.terminal_states: Optional[Sequence[int]] = terminal_states
+    self.gamma: np.float64 = gamma
+
+
+
     # using controlled experiment from paper
     # rt = sp.norm(loc=0, scale=1)
     S: Collection= {1,2,3}
@@ -423,6 +442,7 @@ def main():
 
 
 if __name__ == "__main__":
+
     a_val = np.array([1, 2, 3])
     a_probs = np.array([0.3, 0.4, 0.3])
     b_val = np.array([-5, 5])
