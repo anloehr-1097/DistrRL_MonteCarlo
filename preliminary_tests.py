@@ -53,18 +53,20 @@ class Policy:
 
 class TransitionKernel:
     """Transition kernel for MDP."""
-    def __init__(self, states: Sequence, actions: Sequence, probs: Dict[int, np.ndarray]):
+    # TODO: needs work, transiton kernel should yield probs (x, a) -> x'
+    def __init__(self, states: Sequence, actions: Sequence, probs: Dict[Tuple(int,int) , np.ndarray]):
         """Initialize transition kernel."""
         for state in states:
-            assert probs[state].size == len(actions), "action - distr mismatch."
+            for action in actions:
+                assert probs[(state, action)].size == len(states), "state - distr mismatch."
 
         self.states: Sequence[int] = states
         self.actions: Sequence[int] = actions
-        self.probs: Dict[int, np.ndarray] = probs  # indexing with state
+        self.state_action_probs: Dict[Tuple(int, int), np.ndarray] = probs  # indexing with state
 
-    def __getitem__(self, key: int) -> np.ndarray: 
+    def __getitem__(self, key: Tuple(int, int)) -> np.ndarray: 
         """Return distribution over actions for given state."""
-        return self.probs[key]
+        return self.state_action_probs[key]
 
 
 class RV_Discrete:
@@ -160,7 +162,7 @@ def categorical_dbo(mdp: MDP, pi: Policy,
             for next_state in mdp.states:
                 reward_distr = mdp.rewards[(state, action, next_state)]
                 prob = pi[state][action] * \
-                    mdp.trasition_probs[state][action][next_state]
+                    mdp.trasition_probs[(state, action)][next_state]
 
                 # if terminal state, no future rewards, only immediate
                 if next_state in mdp.terminal_states:
@@ -392,14 +394,24 @@ def plot_atomic_distr(distr: Tuple[np.ndarray, np.ndarray]) -> None:
 
 def main():
     """Call main function."""
-    states: List[int] = list(range(3))
-    actions: List[int] = list(range(3))
+    # trivial MDP bernoulli rewards
+    states: List[int] = [1]
+    actions: List[int] = [1]
+    rewards: RV_Discrete = RV_Discrete(xk=np.array([0, 1]), pk=np.array([0.5, 0.5]))
+    discount_factor: float = 0.5
+                         transition_kernel: TransitionKernel(states, actions, probs)
+    pi: Policy = Policy(states=states, actions=actions, probs={1: np.array([1.0])})
+
+
+
+    
     distribution_1: RV_Discrete = RV_Discrete(xk=np.array([-3, 1]), pk=np.array([0.5, 0.5])),
     distribution_2: RV_Discrete = RV_Discrete(xk=np.array([-3, 1]), pk=np.array([0.5, 0.5])),
     distribution_3: RV_Discrete = RV_Discrete(xk=np.array([-3, 1]), pk=np.array([0.5, 0.5])),
     distributions: List[Tuple[np.ndarray, np.ndarray]] = [distribution_1, distribution_2, distribution_3]
     total_reward_distr_estimate: CategoricalDistrCollection = CategoricalDistrCollection(states, distributions)
-    mdp: MDP(states, actions, rewards, transition_probs)
+
+    mdp: MDP = MDP(states, )
 
     self.rewards: CategoricalRewardDistr = rewards
     # self.rewards: RV_Discrete = rewards
