@@ -12,10 +12,8 @@ import matplotlib.pyplot as plt
 import time
 
 
-
 # States: Dict[int, AnyType] holding possibly holding state representation as vector
 # Actions: Dict[int, Tuple[List[int], List[float]]] holding possible actions, probablity pairs for each state 
-
 
 
 STATES: Mapping = {1: 1, 2: 2, 3: 3} # states, potentially more complex this mapping
@@ -33,8 +31,6 @@ DEBUG = True
 # define random bellman operator as partial function
 
 
-
-
 class Policy:
     def __init__(self, states: Mapping, actions: Sequence, probs: Dict[int, np.ndarray]):
         """Initialize policy.
@@ -45,11 +41,10 @@ class Policy:
             probs: Mapping of state, distribution pairs. Each distribution is a numpy array.
                 each entry in the numpy array corresponds to the probability of the action at the same index.
         """
-
         self.states: Mapping = states
         self.actions: Sequence = actions
         self.probs: Dict[int, np.ndarray] = probs
-           
+
     def __getitem__(self, key: int): 
         """Return distribution over actions for given state."""
         assert self.probs[key].size == len(self.actions), "action - distr mismatch."
@@ -66,7 +61,7 @@ class TransitionKernel:
         self.states: Sequence[int] = states
         self.actions: Sequence[int] = actions
         self.probs: Dict[int, np.ndarray] = probs  # indexing with state
-           
+
     def __getitem__(self, key: int) -> np.ndarray: 
         """Return distribution over actions for given state."""
         return self.probs[key]
@@ -81,6 +76,7 @@ class RV_Discrete:
         self.pk: np.ndarray = pk
 
     def distr(self):
+        """Return distribution as Tuple of numpy arrays."""
         return self.xk, self.pk
 
 
@@ -159,6 +155,7 @@ def categorical_dbo(mdp: MDP, pi: Policy,
         new_probs: List = []
 
         for action in mdp.actions:
+            # possibly outsource this as function
             for next_state in mdp.states:
                 reward_distr = mdp.rewards[(state, action, next_state)]
                 prob = pi[state][action] * mdp.trasition_probs[state][action][next_state]
@@ -177,7 +174,6 @@ def categorical_dbo(mdp: MDP, pi: Policy,
                     new_probs.append(distr_update[1] * prob)
         cat_distr_col[state] = (np.concatenate(new_vals),
                                 np.concatenate(new_probs))
-                   
 
 
 def scale(distr: RV_Discrete, gamma: np.float64) -> RV_Discrete:

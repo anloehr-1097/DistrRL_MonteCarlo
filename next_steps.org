@@ -6,3 +6,38 @@
 - MDP class, simulator
 - better model than the one currently used, something with discount factor and so on
   -> see paper for a good example (disc. normal distr)
+
+ 
+* Call Ende Maerz
+- Fall mit \(\gamma < 1\) umsetzen
+- Algo 5.1 umsetzen
+- binning besser umsetzten (Skalieren der Wkeiten falls < 1)
+- sanity checks mit bekannten MDPS / ausserdem immer die Implementierung der genutzten Funktionen checken
+- bekannte MDPs umsetzen (Bernoulli und Beispiel aus deren Paper)
+- plotting bei diskreten Verteilungen lieber cdf
+- quantile Projection (Algo 5.3) umsetzen (Referenz)
+- Generell alle Algos implementieren
+- (Kern)-dichte Schaetzung scipy
+- Simulation komplizierterer MDPs mittles MonteCarlo Methoden und Simulataion - Ergebnis als Referenz ground truth nutzen + dabie Konfidaenzbaender betrachten um Verteilungsfunktion (siehe scipy) - Stichwort DKW Schranken und/oder Ungleichung
+- 
+
+  
+** Theorieteil
+- Stichwort "Random Operator Fixed Points" (FunkAna)
+-
+** Ziel
+- mathematische Darstellung des Problems praezise
+- ggf. finden weiterer Verteilungen / Beispiele von MDPs deren Gesamtreturn-Verteilung man kennt (Abgeschlsosenheit hinsichtlich unendlciher Faltung)
+- Sortieren GPU parallell (gute Fragestellung)
+- Gross O-Notation und praktische Effizienz beleuchten (auf die Implementierung kommt es an) 
+- alles auch mit State Action return implementieren, um Richtung Kontrolle zu gehen
+
+* Formalia
+- 5 Seiten Einfuehrung in das Thema reicht
+  + Uebergangsdynamik und wie Prozess entsteht sollte klar werden
+  + 
+- Formalismus an der richtigen Stelle
+
+
+- effiziente + gute Implementierung kann gerne ca. 1/3 der Arbeit ausmachen
+- 
