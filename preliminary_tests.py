@@ -54,7 +54,7 @@ class Policy:
 class TransitionKernel:
     """Transition kernel for MDP."""
     # TODO: needs work, transiton kernel should yield probs (x, a) -> x'
-    def __init__(self, states: Sequence, actions: Sequence, probs: Dict[Tuple(int,int) , np.ndarray]):
+    def __init__(self, states: Sequence, actions: Sequence, probs: Dict[Tuple[int,int], np.ndarray]):
         """Initialize transition kernel."""
         for state in states:
             for action in actions:
@@ -62,9 +62,9 @@ class TransitionKernel:
 
         self.states: Sequence[int] = states
         self.actions: Sequence[int] = actions
-        self.state_action_probs: Dict[Tuple(int, int), np.ndarray] = probs  # indexing with state
+        self.state_action_probs: Dict[Tuple[int, int], np.ndarray] = probs  # indexing with state
 
-    def __getitem__(self, key: Tuple(int, int)) -> np.ndarray: 
+    def __getitem__(self, key: Tuple[int, int]) -> np.ndarray: 
         """Return distribution over actions for given state."""
         return self.state_action_probs[key]
 
@@ -86,12 +86,12 @@ class CategoricalDistrCollection:
     """Collection of categorical distributions."""
     # TODO instead of using tuple directly, use RV_Discrete
     def __init__(self, states: Sequence[int],
-                 distributions: List[Tuple(np.ndarray, np.ndarray)]) -> None:
+                 distributions: List[RV_Discrete]) -> None:
         """Initialize collection of categorical distributions."""
         self.states: Sequence = states
         self.distr: Dict = {s: distributions[i] for i, s in enumerate(states)}
 
-    def __getitem__(self, key: int) -> Tuple[np.ndarray, np.ndarray]:
+    def __getitem__(self, key: int) -> RV_Discrete:
         """Return distribution for state."""
         return self.distr[key]
 
@@ -117,7 +117,7 @@ class MDP:
     #              transition_probs: TransitionKernel,terminal_states: Optional[Sequence[int]]=None):
     def __init__(self, states: Sequence, actions: Sequence, rewards: CategoricalRewardDistr,
                  transition_probs: TransitionKernel,
-                 terminal_states: Optional[Sequence[int]] = None, gamma: np.float64 = 0.5):
+                 terminal_states: Optional[Sequence[int]] = [], gamma: np.float64 = 0.5):
         """Initialize MDP."""
         self.states: Dict = {i: s for i, s in enumerate(states)}
         self.actions: Sequence = actions
@@ -159,7 +159,7 @@ def categorical_dbo(mdp: MDP, pi: Policy,
 
         for action in mdp.actions:
             # TODO possibly outsource this as function
-            for next_state in mdp.states:
+            for next_state in mdp.states.values():
                 reward_distr = mdp.rewards[(state, action, next_state)]
                 prob = pi[state][action] * \
                     mdp.trasition_probs[(state, action)][next_state]
@@ -172,14 +172,14 @@ def categorical_dbo(mdp: MDP, pi: Policy,
                 else:
                     distr_update: Tuple[np.ndarray, np.ndarray] = \
                         conv_jit(scale(cat_distr_col[next_state],
-                                       mdp.gamma),
+                                       mdp.gamma).distr(),
                                  reward_distr.distr())
                     new_vals.append(distr_update[0])
                     new_probs.append(distr_update[1] * prob)
 
 
         # ready to update \theta(x), store in list
-        ret_distr.append((np.concatenate(new_vals), np.concatenate(new_probs)))
+        ret_distr.append(RV_Discrete(np.concatenate(new_vals), np.concatenate(new_probs)))
 
     # final collection of distributions along all states
     ret_cat_distr_coll: CategoricalDistrCollection = \
@@ -395,25 +395,32 @@ def plot_atomic_distr(distr: Tuple[np.ndarray, np.ndarray]) -> None:
 def main():
     """Call main function."""
     # trivial MDP bernoulli rewards
-    states: List[int] = [1]
-    actions: List[int] = [1]
-    _rewards: RV_Discrete = RV_Discrete(xk=np.array([0, 1]), pk=np.array([0.5, 0.5]))
-    rewards: CategoricalRewardDistr = CategoricalRewardDistr([(1, 1, 1)], [_rewards])
+    states: List[int] = [0]
+    actions: List[int] = [0]
+    _rewards: RV_Discrete = RV_Discrete(xk=np.array([0.0, 1.0]), pk=np.array([0.5, 0.5]))
+    rewards: CategoricalRewardDistr = CategoricalRewardDistr([(0, 0, 0)], [_rewards])
     discount_factor: np.float64 = np.array([0.5])
-    probs = {(1, 1): np.array([1.0])}
+    probs = {(0, 0): np.array([1.0])}
     transition_kernel: TransitionKernel = TransitionKernel(states, actions, probs)
-    pi: Policy = Policy(states=states, actions=actions, probs={1: np.array([1.0])})
+    pi: Policy = Policy(states=states, actions=actions, probs={0: np.array([1.0])})
 
     
-    distribution_1: RV_Discrete = RV_Discrete(xk=np.array([-3, 1]), pk=np.array([0.5, 0.5])),
-    distribution_2: RV_Discrete = RV_Discrete(xk=np.array([-3, 1]), pk=np.array([0.5, 0.5])),
-    distribution_3: RV_Discrete = RV_Discrete(xk=np.array([-3, 1]), pk=np.array([0.5, 0.5])),
-    distributions: List[Tuple[np.ndarray, np.ndarray]] = [distribution_1, distribution_2, distribution_3]
+    distribution_1: RV_Discrete = RV_Discrete(xk=np.array([-3.0, 1.0]), pk=np.array([0.5, 0.5]))
+    distribution_2: RV_Discrete = RV_Discrete(xk=np.array([-3.0, 1.0]), pk=np.array([0.5, 0.5]))
+    distribution_3: RV_Discrete = RV_Discrete(xk=np.array([-3.0, 1.0]), pk=np.array([0.5, 0.5]))
+    distributions: List[RV_Discrete] = [distribution_1, distribution_2, distribution_3]
     total_reward_distr_estimate: CategoricalDistrCollection = CategoricalDistrCollection(states, distributions)
 
     mdp: MDP = MDP(states, actions, rewards, transition_kernel)
     mdp.set_policy(pi)
-    res: CategoricalDistrCollection = categorical_dbo(mdp, pi, total_reward_distr_estimate) 
+
+    res: CategoricalDistrCollection = total_reward_distr_estimate
+    for i in range(10):
+        print(f"Iteration {i} started.")
+        res: CategoricalDistrCollection = categorical_dbo(mdp, pi, res) 
+        print(f"Iteration {i} stopped.")
+
+    print(res[0].distr())
     return res
 
 
@@ -426,21 +433,21 @@ def main():
 
 if __name__ == "__main__":
 
-    a_val = np.array([1, 2, 3])
-    a_probs = np.array([0.3, 0.4, 0.3])
-    b_val = np.array([-5, 5])
-    b_probs = np.array([0.5, 0.5])
-
-    a = (a_val, a_probs)
-    b = (b_val, b_probs)
-
-    c = conv(a, b)
-    vals = np.linspace(0, 100, 1000)
-    ps = np.ones(1000) * 1 / 1000
-    # apply_projection(project_eqi)(values=vals, probs=ps, no_of_bins=10, state=1)
-    new_vals, new_probs = project_eqi(values=vals, probs=ps, no_of_bins=10, state=1)
-
-    print(new_vals, new_probs)
-    print(np.sum(new_probs))
-    print("completed binning.")
-    # main()
+    # a_val = np.array([1, 2, 3])
+    # a_probs = np.array([0.3, 0.4, 0.3])
+    # b_val = np.array([-5, 5])
+    # b_probs = np.array([0.5, 0.5])
+# 
+    # a = (a_val, a_probs)
+    # b = (b_val, b_probs)
+# 
+    # c = conv(a, b)
+    # vals = np.linspace(0, 100, 1000)
+    # ps = np.ones(1000) * 1 / 1000
+    # # apply_projection(project_eqi)(values=vals, probs=ps, no_of_bins=10, state=1)
+    # new_vals, new_probs = project_eqi(values=vals, probs=ps, no_of_bins=10, state=1)
+# 
+    # print(new_vals, new_probs)
+    # print(np.sum(new_probs))
+    # print("completed binning.")
+    main()
