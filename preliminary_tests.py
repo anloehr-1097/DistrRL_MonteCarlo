@@ -115,7 +115,7 @@ class MDP:
 
     # def __init__(self, states: Sequence, actions: Mapping, rewards: CategoricalRewardDistr,
     #              transition_probs: TransitionKernel,terminal_states: Optional[Sequence[int]]=None):
-    def __init__(self, states: Sequence, actions: Mapping, rewards: RV_Discrete,
+    def __init__(self, states: Sequence, actions: Sequence, rewards: CategoricalRewardDistr,
                  transition_probs: TransitionKernel,
                  terminal_states: Optional[Sequence[int]] = None, gamma: np.float64 = 0.5):
         """Initialize MDP."""
@@ -179,12 +179,12 @@ def categorical_dbo(mdp: MDP, pi: Policy,
 
 
         # ready to update \theta(x), store in list
-        ret_distr.append((np.concatenate(new_vals), np.concatenate(new_probs))
+        ret_distr.append((np.concatenate(new_vals), np.concatenate(new_probs)))
 
     # final collection of distributions along all states
     ret_cat_distr_coll: CategoricalDistrCollection = \
-                         CategoricalDistrCollection(states=cat_distr_col.states,
-                                                    distributions=ret_distr)
+                       CategoricalDistrCollection(states=cat_distr_col.states,
+                                                  distributions=ret_distr)
     return ret_cat_distr_coll
 
 
@@ -397,12 +397,12 @@ def main():
     # trivial MDP bernoulli rewards
     states: List[int] = [1]
     actions: List[int] = [1]
-    rewards: RV_Discrete = RV_Discrete(xk=np.array([0, 1]), pk=np.array([0.5, 0.5]))
-    discount_factor: float = 0.5
-                         transition_kernel: TransitionKernel(states, actions, probs)
+    _rewards: RV_Discrete = RV_Discrete(xk=np.array([0, 1]), pk=np.array([0.5, 0.5]))
+    rewards: CategoricalRewardDistr = CategoricalRewardDistr([(1, 1, 1)], [_rewards])
+    discount_factor: np.float64 = np.array([0.5])
+    probs = {(1, 1): np.array([1.0])}
+    transition_kernel: TransitionKernel = TransitionKernel(states, actions, probs)
     pi: Policy = Policy(states=states, actions=actions, probs={1: np.array([1.0])})
-
-
 
     
     distribution_1: RV_Discrete = RV_Discrete(xk=np.array([-3, 1]), pk=np.array([0.5, 0.5])),
@@ -411,46 +411,17 @@ def main():
     distributions: List[Tuple[np.ndarray, np.ndarray]] = [distribution_1, distribution_2, distribution_3]
     total_reward_distr_estimate: CategoricalDistrCollection = CategoricalDistrCollection(states, distributions)
 
-    mdp: MDP = MDP(states, )
-
-    self.rewards: CategoricalRewardDistr = rewards
-    # self.rewards: RV_Discrete = rewards
-    self.trasition_probs: TransitionKernel = transition_probs
-    self.current_policy: Optional[Policy] = None
-    self.terminal_states: Optional[Sequence[int]] = terminal_states
-    self.gamma: np.float64 = gamma
+    mdp: MDP = MDP(states, actions, rewards, transition_kernel)
+    mdp.set_policy(pi)
+    res: CategoricalDistrCollection = categorical_dbo(mdp, pi, total_reward_distr_estimate) 
+    return res
 
 
-
-    # using controlled experiment from paper
-    # rt = sp.norm(loc=0, scale=1)
-    S: Collection= {1,2,3}
-    A: Collection = {1}
-    N: int = 100
-    T: int = 10
-
-    Rewards: Dict = {
-        (1, 2) : sp.norm(loc=-3, scale=1).rvs(N),
-        (2, 3) : sp.norm(loc=5, scale=2).rvs(N),
-        (3, 1) : sp.norm(loc=0, scale=0.5).rvs(N),
-    }
-    gamma: np.float64 = 0.7
-    # initial_return: Dict[int, Tuple[np.ndarray, np.ndarray]] = {
-        #1: (Rewards[], np.ones(N) / N),
-        
+    
 
 
-    #}
 
-    # re
-    for i in range(T):
-        for s in S:
-            for s_prime in S:
-                # sample from return distribution
-                # update return distribution
-                # update approx return distribution
-                pass
-    return None
+
 
 
 if __name__ == "__main__":
