@@ -128,6 +128,8 @@ class CategoricalDistrCollection:
     def __getitem__(self, key: int) -> RV_Discrete:
         """Return distribution for state."""
         return self.distr[key]
+    def __len__(self) -> None:
+        return len(self.states)
 
 
 class CategoricalRewardDistr:
@@ -204,10 +206,12 @@ def categorical_dbo(
         for action in mdp.actions:
             # TODO possibly outsource this as function
             for next_state in mdp.states.values():
-                reward_distr = mdp.rewards[(state, action, next_state)]
                 prob = (
                     pi[state][action] * mdp.trasition_probs[(state, action)][next_state]
                 )
+                if prob == 0:
+                    continue
+                reward_distr = mdp.rewards[(state, action, next_state)]
 
                 # if terminal state, no future rewards, only immediate
                 if next_state in mdp.terminal_states:
