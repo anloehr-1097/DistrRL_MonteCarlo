@@ -143,7 +143,7 @@ class MDP:
         rewards: CategoricalRewardDistr,
         transition_probs: TransitionKernel,
         terminal_states: Optional[Sequence[int]] = [],
-        gamma: np.float64 = 0.5,
+        gamma: np.float64 = np.float64(0.5),
     ):
         """Initialize MDP."""
         self.states: Dict = {i: s for i, s in enumerate(states)}
