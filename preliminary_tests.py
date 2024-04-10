@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as sp
 from numba import njit
+from nb_fun import _sort_njit
 
 # States: Dict[int, AnyType] holding possibly holding state representation as vector
 # Actions: Dict[int, Tuple[List[int], List[float]]] holding possible actions, probablity pairs for each state
@@ -96,6 +97,22 @@ class RV_Discrete:
     def distr(self):
         """Return distribution as Tuple of numpy arrays."""
         return self.xk, self.pk
+
+    def get_cdf(self) -> Tuple[np.ndarray, np.ndarray]:
+        #self._sort()
+        self._sort_njit()
+        return self.xk, np.cumsum(self.pk)
+
+    def _sort(self):
+        """Sort values and probs."""
+        indices = np.argsort(self.xk)
+        self.xk = self.xk[indices]
+        self.pk = self.pk[indices]
+
+    def _sort_njit(self):
+        self.xk, self.pk = _sort_njit(self.xk, self.pk)
+
+        
 
 
 class CategoricalDistrCollection:
