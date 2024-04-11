@@ -112,8 +112,6 @@ class RV_Discrete:
     def _sort_njit(self):
         self.xk, self.pk = _sort_njit(self.xk, self.pk)
 
-        
-
 
 class CategoricalDistrCollection:
     """Collection of categorical distributions."""
@@ -128,6 +126,7 @@ class CategoricalDistrCollection:
     def __getitem__(self, key: int) -> RV_Discrete:
         """Return distribution for state."""
         return self.distr[key]
+
     def __len__(self) -> None:
         return len(self.states)
 
@@ -236,6 +235,28 @@ def categorical_dbo(
         states=cat_distr_col.states, distributions=ret_distr
     )
     return ret_cat_distr_coll
+
+
+####################
+# Algorithm 5.3    #
+####################
+def quantile_dynamic_programming(mdp: MDP, pi: Policy,
+                                 cat_distr_col: CategoricalDistrCollection):
+    """Quantile dynamic programming.
+
+    Execute one step of the quantile dynamic programming algorithm.
+
+    An implementation of Algorithm 5.2 from the DRL book.
+    This algorithm applies the quantile projection after computing the convolution.
+    For a fixed number of particles m, the algorithm projects an arbitrary distriubtion
+    d onto a distribution with m atoms with equal probability. The i-th location / atom
+    \\theta_i is obtained by calculating F^{-1}(2*i - 1 / 2m) where F is the cdf of d.
+    """
+    # apply algo 5.1
+
+    # for each state, apply quantalie projection
+
+    pass
 
 
 def scale(distr: RV_Discrete, gamma: np.float64) -> RV_Discrete:
