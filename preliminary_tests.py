@@ -12,6 +12,7 @@ import numpy as np
 import scipy.stats as sp
 from numba import njit
 from nb_fun import _sort_njit
+from utils import assert_probs_distr
 
 # States: Dict[int, AnyType] holding possibly holding state representation as vector
 # Actions: Dict[int, Tuple[List[int], List[float]]] holding possible actions, probablity pairs for each state
@@ -252,11 +253,62 @@ def quantile_dynamic_programming(mdp: MDP, pi: Policy,
     d onto a distribution with m atoms with equal probability. The i-th location / atom
     \\theta_i is obtained by calculating F^{-1}(2*i - 1 / 2m) where F is the cdf of d.
     """
+
     # apply algo 5.1
 
     # for each state, apply quantalie projection
 
     pass
+
+
+@njit
+def quantile_projection(distr: Tuple[np.ndarray, np.ndarray],
+                        no_of_bins: int) -> np.ndarray:
+    """Apply quantile projection as described in book to a distributoin."""
+    vals: np.ndarray = distr[0]
+    probs: np.ndarray = distr[1]
+
+    # sort array
+    idx_sort: np.ndarray = np.argsort(vals)
+    vals = vals[idx_sort]
+    probs = probs[idx_sort]
+
+    quantiles: np.ndarray = np.ones(no_of_bins) / no_of_bins
+    assert  np.sum(quantiles) == 1, "Quantiles do not sum to 1."
+    # make sure no duplicate values
+    vals, probs = filter_and_aggregate((vals,probs))
+    assert_probs_distr(probs)
+
+    # aggregate probs
+    cum_probs: np.ndarray = np.cumsum(probs)
+
+    # determine indices for quantiles
+    quantile_locs: np.ndarray = np.searchsorted(cum_probs, quantiles)
+
+    return quantile_locs
+
+
+@njit
+def filter_and_aggregate(vals: np.ndarray, probs: np.ndarray) \
+        -> Tuple[np.ndarray, np.ndarray]:
+    """Filter and aggregate unique values / probs in a distribution.
+
+    Assume that values are in increasing order.
+    """
+    current_val_idx: int = -1  
+    current_val: Optional[np.float64] = None
+    new_probs: List[np.float64] = []
+
+    for idx, val in enumerate(vals):
+        if abs(val - current_val) < 1e-10:
+            new_probs[current_val_idx] += probs[idx]
+        else:
+            current_val = val
+            new_probs.append(probs[idx])
+            current_val_idx += 1
+
+    new_vals: np.ndarray = np.unique(vals)
+    return new_vals, np.asarray(new_probs)
 
 
 def scale(distr: RV_Discrete, gamma: np.float64) -> RV_Discrete:
