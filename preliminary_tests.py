@@ -128,8 +128,15 @@ class CategoricalDistrCollection:
         """Return distribution for state."""
         return self.distr[key]
 
-    def __len__(self) -> None:
+    def __len__(self) -> int:
         return len(self.states)
+
+    def __setitem__(self, key: int, value: RV_Discrete) -> None:
+        """Set distribution for state."""
+        self.distr[key] = value
+
+
+        
 
 
 class CategoricalRewardDistr:
@@ -161,7 +168,7 @@ class MDP:
         actions: Sequence,
         rewards: CategoricalRewardDistr,
         transition_probs: TransitionKernel,
-        terminal_states: Optional[Sequence[int]] = [],
+        terminal_states: Sequence[int] = [],
         gamma: np.float64 = np.float64(0.5),
     ):
         """Initialize MDP."""
@@ -171,7 +178,7 @@ class MDP:
         # self.rewards: RV_Discrete = rewards
         self.trasition_probs: TransitionKernel = transition_probs
         self.current_policy: Optional[Policy] = None
-        self.terminal_states: Optional[Sequence[int]] = terminal_states
+        self.terminal_states: Sequence[int] = terminal_states
         self.gamma: np.float64 = gamma
 
     def set_policy(self, policy: Policy) -> None:
@@ -197,7 +204,7 @@ def categorical_dbo(
 
         ensure that all states in collection are states in the mdp
     """
-    ret_distr: List[Tuple[np.ndarray, np.ndarray]] = []
+    ret_distr: List[RV_Discrete] = []
 
     for state in cat_distr_col.states:
         new_vals: List = []
@@ -238,27 +245,61 @@ def categorical_dbo(
     return ret_cat_distr_coll
 
 
+
+
 ####################
 # Algorithm 5.3    #
 ####################
+def categorial_dynamic_programming(mdp: MDP,
+                                   pi: Policy,
+                                   cat_distr_col: CategoricalDistrCollection) \
+                                   -> CategoricalDistrCollection:
+
+
+    """Categorical dynamic programming.
+
+    Execute one step of the categorical dynamic programming algorithm.
+
+    An implementation of Algorithm 5.3 from the DRL book.
+    This algorithm applies the categorical projection after computing the convolution.
+    For a fixed number of particles m, the algorithm projects an arbitrary distribution
+    d onto a distribution with m atoms at the same location and ajusts the probabilities.
+    """
+    pass
+
+
+####################
+# Algorithm 5.4    #
+####################
 def quantile_dynamic_programming(mdp: MDP, pi: Policy,
-                                 cat_distr_col: CategoricalDistrCollection):
+                                 cat_distr_col: CategoricalDistrCollection,
+                                 no_of_quantiles: int) -> CategoricalDistrCollection:
     """Quantile dynamic programming.
 
     Execute one step of the quantile dynamic programming algorithm.
 
-    An implementation of Algorithm 5.2 from the DRL book.
+    An implementation of Algorithm 5.4 from the DRL book.
     This algorithm applies the quantile projection after computing the convolution.
-    For a fixed number of particles m, the algorithm projects an arbitrary distriubtion
+    For a fixed number of particles m, the algorithm projects an arbitrary distribution
     d onto a distribution with m atoms with equal probability. The i-th location / atom
     \\theta_i is obtained by calculating F^{-1}(2*i - 1 / 2m) where F is the cdf of d.
     """
 
+    # get the initial quantile projection of cat_distr_col before any dbo application
+    for idx, state in enumerate(cat_distr_col.states):
+        cat_distr_col[idx] = RV_Discrete(
+            quantile_projection(cat_distr_col[state].distr(),no_of_quantiles),
+            np.ones(no_of_quantiles) / no_of_quantiles)
+    
     # apply algo 5.1
+    dbo_result: CategoricalDistrCollection = categorical_dbo(mdp, pi, cat_distr_col)
 
     # for each state, apply quantalie projection
-
-    pass
+    for idx, state in enumerate(dbo_result.states):
+        dbo_result[state] = RV_Discrete(
+            quantile_projection(dbo_result[state].distr(), no_of_quantiles),
+            np.ones(no_of_quantiles) / no_of_quantiles)
+    return dbo_result
 
 
 @njit

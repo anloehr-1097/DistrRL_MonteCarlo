@@ -1,2 +1,6 @@
 
-assert_probs_distr = lambda probs: assert np.sum(probs) == 1, "Probs do not sum to 1."
+import numpy as np
+
+def assert_probs_distr(probs: np.ndarray) -> None:
+    assert np.sum(probs) == 1, "Probs do not sum to 1."
+
