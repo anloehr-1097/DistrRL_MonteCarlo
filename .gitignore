@@ -3,4 +3,7 @@
 __pycache__/*
 *.png
 *.org
+*/CMakeFiles/*
+/build/*
+.mypy_cache/*
 

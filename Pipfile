@@ -11,6 +11,8 @@ numba = "*"
 torch = "*"
 appnope = "*"
 nbstripout = "*"
+scikit-learn = "*"
+black = "*"
 
 [dev-packages]
 ipykernel = "*"
