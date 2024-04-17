@@ -13,6 +13,7 @@ appnope = "*"
 nbstripout = "*"
 scikit-learn = "*"
 black = "*"
+black-macchiato = "*"
 
 [dev-packages]
 ipykernel = "*"

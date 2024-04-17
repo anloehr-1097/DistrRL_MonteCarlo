@@ -250,11 +250,10 @@ def categorical_dbo(
 ####################
 # Algorithm 5.3    #
 ####################
-def categorial_dynamic_programming(mdp: MDP,
-                                   pi: Policy,
-                                   cat_distr_col: CategoricalDistrCollection) \
-                                   -> CategoricalDistrCollection:
-
+def categorical_dynamic_programming(mdp: MDP,
+                                    pi: Policy,
+                                    cat_distr_col: CategoricalDistrCollection) \
+                                    -> CategoricalDistrCollection:
 
     """Categorical dynamic programming.
 
@@ -288,9 +287,9 @@ def quantile_dynamic_programming(mdp: MDP, pi: Policy,
     # get the initial quantile projection of cat_distr_col before any dbo application
     for idx, state in enumerate(cat_distr_col.states):
         cat_distr_col[idx] = RV_Discrete(
-            quantile_projection(cat_distr_col[state].distr(),no_of_quantiles),
+            quantile_projection(cat_distr_col[state].distr(), no_of_quantiles),
             np.ones(no_of_quantiles) / no_of_quantiles)
-    
+
     # apply algo 5.1
     dbo_result: CategoricalDistrCollection = categorical_dbo(mdp, pi, cat_distr_col)
 
@@ -302,7 +301,7 @@ def quantile_dynamic_programming(mdp: MDP, pi: Policy,
     return dbo_result
 
 
-@njit
+# TODO: possible enable @njit
 def quantile_projection(distr: Tuple[np.ndarray, np.ndarray],
                         no_of_bins: int) -> np.ndarray:
     """Apply quantile projection as described in book to a distributoin."""
@@ -315,9 +314,9 @@ def quantile_projection(distr: Tuple[np.ndarray, np.ndarray],
     probs = probs[idx_sort]
 
     quantiles: np.ndarray = np.ones(no_of_bins) / no_of_bins
-    assert  np.sum(quantiles) == 1, "Quantiles do not sum to 1."
+    assert np.isclose(np.sum(quantiles), 1), "Quantiles do not sum to 1."
     # make sure no duplicate values
-    vals, probs = filter_and_aggregate((vals,probs))
+    vals, probs = filter_and_aggregate(vals, probs)
     assert_probs_distr(probs)
 
     # aggregate probs
@@ -336,7 +335,7 @@ def filter_and_aggregate(vals: np.ndarray, probs: np.ndarray) \
 
     Assume that values are in increasing order.
     """
-    current_val_idx: int = -1  
+    current_val_idx: int = -1
     current_val: Optional[np.float64] = None
     new_probs: List[np.float64] = []
 
@@ -470,7 +469,6 @@ def apply_projection(func: Callable) -> Callable:
             new_probs[i] = np.sum(kwargs["probs"][bins == i])
 
         new_probs = new_probs / np.sum(new_probs)
-
 
         return bin_values, new_probs
 
@@ -608,21 +606,4 @@ def main():
 
 if __name__ == "__main__":
 
-    # a_val = np.array([1, 2, 3])
-    # a_probs = np.array([0.3, 0.4, 0.3])
-    # b_val = np.array([-5, 5])
-    # b_probs = np.array([0.5, 0.5])
-    #
-    # a = (a_val, a_probs)
-    # b = (b_val, b_probs)
-    #
-    # c = conv(a, b)
-    # vals = np.linspace(0, 100, 1000)
-    # ps = np.ones(1000) * 1 / 1000
-    # # apply_projection(project_eqi)(values=vals, probs=ps, no_of_bins=10, state=1)
-    # new_vals, new_probs = project_eqi(values=vals, probs=ps, no_of_bins=10, state=1)
-    #
-    # print(new_vals, new_probs)
-    # print(np.sum(new_probs))
-    # print("completed binning.")
     main()
