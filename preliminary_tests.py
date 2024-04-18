@@ -350,8 +350,10 @@ def quantile_projection(distr: Tuple[np.ndarray, np.ndarray],
 
     # determine indices for quantiles
     quantile_locs: np.ndarray = np.searchsorted(cum_probs, quantiles)
+    quantile_locs = np.clip(quantile_locs, 0, len(vals) - 1)
 
-    return quantile_locs, (np.ones(no_of_bins) / no_of_bins)
+    # return quantile_locs, (np.ones(no_of_bins) / no_of_bins)
+    return vals[quantile_locs], (np.ones(no_of_bins) / no_of_bins)
 
 
 def scale(distr: RV_Discrete, gamma: np.float64) -> RV_Discrete:
@@ -571,9 +573,10 @@ def main():
     from sample_envs import cyclical_env
     mdp = cyclical_env.mdp
     res = cyclical_env.total_reward_distr_estimate
-    quantile_dynamic_programming(mdp, mdp.current_policy, res, 100)
+    for i in range(1000):
+        res = quantile_dynamic_programming(mdp, mdp.current_policy, res, 100)
 
-    return None
+    return res
 
 
 if __name__ == "__main__":
