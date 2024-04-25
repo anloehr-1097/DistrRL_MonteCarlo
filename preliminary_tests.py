@@ -10,7 +10,7 @@ from typing import Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as sp
-from numba import njit
+from numba import njit, jit
 from nb_fun import _sort_njit
 from utils import assert_probs_distr
 
@@ -250,11 +250,10 @@ def categorical_dbo(
 ####################
 # Algorithm 5.3    #
 ####################
-def categorial_dynamic_programming(mdp: MDP,
-                                   pi: Policy,
-                                   cat_distr_col: CategoricalDistrCollection) \
-                                   -> CategoricalDistrCollection:
-
+def categorical_dynamic_programming(mdp: MDP,
+                                    pi: Policy,
+                                    cat_distr_col: CategoricalDistrCollection) \
+                                    -> CategoricalDistrCollection:
 
     """Categorical dynamic programming.
 
@@ -288,56 +287,28 @@ def quantile_dynamic_programming(mdp: MDP, pi: Policy,
     # get the initial quantile projection of cat_distr_col before any dbo application
     for idx, state in enumerate(cat_distr_col.states):
         cat_distr_col[idx] = RV_Discrete(
-            quantile_projection(cat_distr_col[state].distr(),no_of_quantiles),
-            np.ones(no_of_quantiles) / no_of_quantiles)
-    
+            *quantile_projection(cat_distr_col[state].distr(), no_of_quantiles))
+
     # apply algo 5.1
     dbo_result: CategoricalDistrCollection = categorical_dbo(mdp, pi, cat_distr_col)
 
     # for each state, apply quantalie projection
     for idx, state in enumerate(dbo_result.states):
         dbo_result[state] = RV_Discrete(
-            quantile_projection(dbo_result[state].distr(), no_of_quantiles),
-            np.ones(no_of_quantiles) / no_of_quantiles)
+            *quantile_projection(dbo_result[state].distr(), no_of_quantiles))
     return dbo_result
 
 
-@njit
-def quantile_projection(distr: Tuple[np.ndarray, np.ndarray],
-                        no_of_bins: int) -> np.ndarray:
-    """Apply quantile projection as described in book to a distributoin."""
-    vals: np.ndarray = distr[0]
-    probs: np.ndarray = distr[1]
-
-    # sort array
-    idx_sort: np.ndarray = np.argsort(vals)
-    vals = vals[idx_sort]
-    probs = probs[idx_sort]
-
-    quantiles: np.ndarray = np.ones(no_of_bins) / no_of_bins
-    assert  np.sum(quantiles) == 1, "Quantiles do not sum to 1."
-    # make sure no duplicate values
-    vals, probs = filter_and_aggregate((vals,probs))
-    assert_probs_distr(probs)
-
-    # aggregate probs
-    cum_probs: np.ndarray = np.cumsum(probs)
-
-    # determine indices for quantiles
-    quantile_locs: np.ndarray = np.searchsorted(cum_probs, quantiles)
-
-    return quantile_locs
-
-
-@njit
+# TODO resolve error, numba does not compile correctly, get type error 
+# @njit 
 def filter_and_aggregate(vals: np.ndarray, probs: np.ndarray) \
         -> Tuple[np.ndarray, np.ndarray]:
     """Filter and aggregate unique values / probs in a distribution.
 
     Assume that values are in increasing order.
     """
-    current_val_idx: int = -1  
-    current_val: Optional[np.float64] = None
+    current_val_idx: int = -1
+    current_val: Optional[np.float64] = np.float64(vals[0] - 1) 
     new_probs: List[np.float64] = []
 
     for idx, val in enumerate(vals):
@@ -350,6 +321,39 @@ def filter_and_aggregate(vals: np.ndarray, probs: np.ndarray) \
 
     new_vals: np.ndarray = np.unique(vals)
     return new_vals, np.asarray(new_probs)
+
+
+# TODO: possible enable @njit
+def quantile_projection(distr: Tuple[np.ndarray, np.ndarray],
+                        no_of_bins: int) -> Tuple[np.ndarray, np.ndarray]:
+    """Apply quantile projection as described in book to a distributoin."""
+    vals: np.ndarray = distr[0]
+    probs: np.ndarray = distr[1]
+
+    # sort array
+    idx_sort: np.ndarray = np.argsort(vals)
+    vals = vals[idx_sort]
+    probs = probs[idx_sort]
+
+    quantiles: np.ndarray = np.cumsum(np.ones(no_of_bins) / no_of_bins)
+    assert np.isclose(quantiles[-1], 1), "Quantiles do not sum to 1."
+    # make sure no duplicate values
+    vals, probs = filter_and_aggregate(vals=vals, probs=probs)
+    assert_probs_distr(probs)
+
+    # aggregate probs
+    cum_probs: np.ndarray = np.cumsum(probs)
+
+    # case not quantile projection possible
+    if cum_probs.size < no_of_bins:
+        return vals, probs
+
+    # determine indices for quantiles
+    quantile_locs: np.ndarray = np.searchsorted(cum_probs, quantiles)
+    quantile_locs = np.clip(quantile_locs, 0, len(vals) - 1)
+
+    # return quantile_locs, (np.ones(no_of_bins) / no_of_bins)
+    return vals[quantile_locs], (np.ones(no_of_bins) / no_of_bins)
 
 
 def scale(distr: RV_Discrete, gamma: np.float64) -> RV_Discrete:
@@ -471,7 +475,6 @@ def apply_projection(func: Callable) -> Callable:
 
         new_probs = new_probs / np.sum(new_probs)
 
-
         return bin_values, new_probs
 
     return apply_projection_inner
@@ -567,62 +570,15 @@ def plot_atomic_distr(distr: Tuple[np.ndarray, np.ndarray]) -> None:
 
 def main():
     """Call main function."""
-    # trivial MDP bernoulli rewards
-    states: List[int] = [0]
-    actions: List[int] = [0]
-    _rewards: RV_Discrete = RV_Discrete(
-        xk=np.array([0.0, 1.0]), pk=np.array([0.5, 0.5])
-    )
-    rewards: CategoricalRewardDistr = CategoricalRewardDistr([(0, 0, 0)], [_rewards])
-    discount_factor: np.float64 = np.array([0.5])
-    probs = {(0, 0): np.array([1.0])}
-    transition_kernel: TransitionKernel = TransitionKernel(states, actions, probs)
-    pi: Policy = Policy(states=states, actions=actions, probs={0: np.array([1.0])})
+    from sample_envs import cyclical_env
+    mdp = cyclical_env.mdp
+    res = cyclical_env.total_reward_distr_estimate
+    for i in range(1000):
+        res = quantile_dynamic_programming(mdp, mdp.current_policy, res, 100)
 
-    distribution_1: RV_Discrete = RV_Discrete(
-        xk=np.array([-3.0, 1.0]), pk=np.array([0.5, 0.5])
-    )
-    distribution_2: RV_Discrete = RV_Discrete(
-        xk=np.array([-3.0, 1.0]), pk=np.array([0.5, 0.5])
-    )
-    distribution_3: RV_Discrete = RV_Discrete(
-        xk=np.array([-3.0, 1.0]), pk=np.array([0.5, 0.5])
-    )
-    distributions: List[RV_Discrete] = [distribution_1, distribution_2, distribution_3]
-    total_reward_distr_estimate: CategoricalDistrCollection = (
-        CategoricalDistrCollection(states, distributions)
-    )
-
-    mdp: MDP = MDP(states, actions, rewards, transition_kernel)
-    mdp.set_policy(pi)
-
-    res: CategoricalDistrCollection = total_reward_distr_estimate
-    for i in range(10):
-        print(f"Iteration {i} started.")
-        res: CategoricalDistrCollection = categorical_dbo(mdp, pi, res)
-        print(f"Iteration {i} stopped.")
-
-    print(res[0].distr())
     return res
 
 
 if __name__ == "__main__":
 
-    # a_val = np.array([1, 2, 3])
-    # a_probs = np.array([0.3, 0.4, 0.3])
-    # b_val = np.array([-5, 5])
-    # b_probs = np.array([0.5, 0.5])
-    #
-    # a = (a_val, a_probs)
-    # b = (b_val, b_probs)
-    #
-    # c = conv(a, b)
-    # vals = np.linspace(0, 100, 1000)
-    # ps = np.ones(1000) * 1 / 1000
-    # # apply_projection(project_eqi)(values=vals, probs=ps, no_of_bins=10, state=1)
-    # new_vals, new_probs = project_eqi(values=vals, probs=ps, no_of_bins=10, state=1)
-    #
-    # print(new_vals, new_probs)
-    # print(np.sum(new_probs))
-    # print("completed binning.")
     main()
