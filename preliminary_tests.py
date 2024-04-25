@@ -309,7 +309,6 @@ def categorical_projection(distr: Tuple[np.ndarray, np.ndarray],
     right_neigh: np.ndarray = particles[hypo_insert_pos]
     assert left_neigh.size == right_neigh.size, "Size mismatch in neighbors."
 
-    # TODO continue here, see page 132 in book for projection step
     return distr
 
 
