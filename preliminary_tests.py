@@ -252,7 +252,8 @@ def categorical_dbo(
 ####################
 def categorical_dynamic_programming(mdp: MDP,
                                     pi: Policy,
-                                    cat_distr_col: CategoricalDistrCollection) \
+                                    cat_distr_col: CategoricalDistrCollection,
+                                    particles: np.ndarray)\
                                     -> CategoricalDistrCollection:
 
     """Categorical dynamic programming.
@@ -264,7 +265,52 @@ def categorical_dynamic_programming(mdp: MDP,
     For a fixed number of particles m, the algorithm projects an arbitrary distribution
     d onto a distribution with m atoms at the same location and ajusts the probabilities.
     """
-    pass
+    # assume cat_dist_col already categorical representation of (\theta_i, p_i)
+    assert assert_equidistant_particles(particles) is False, \
+        "Check initial particles, not equidistant."
+
+    # ensure sorted particles
+    particles = np.sort(particles)
+
+    # apply categorical projection to initial distribution
+    for idx, state in enumerate(cat_distr_col.states):
+        cat_distr_col[idx] = RV_Discrete(
+            *categorical_projection(cat_distr_col[state].distr(),
+                                    particles))
+
+    # apply algo 5.1
+    dbo_result: CategoricalDistrCollection = categorical_dbo(mdp, pi,
+                                                             cat_distr_col)
+
+    # for each state, apply quantalie projection
+    for idx, state in enumerate(dbo_result.states):
+        dbo_result[state] = RV_Discrete(
+            *categorical_projection(dbo_result[state].distr(), particles))
+    return dbo_result
+
+
+def assert_equidistant_particles(particles: np.ndarray) -> bool:
+    """Assert that particles are equidistant."""
+    return np.all(np.diff(particles) == \
+                  (particles[-1] - particles[0])/(particles.size - 1))
+
+
+def categorical_projection(distr: Tuple[np.ndarray, np.ndarray],
+                           particles: np.ndarray)\
+                           -> Tuple[np.ndarray, np.ndarray]:
+    """Apply categorical projection as described in book to a distriution."""
+
+
+    # sort array
+    hypo_insert_pos: np.ndarray = np.searchsorted(particles, distr[0])
+
+    # determine closest neighbors
+    left_neigh: np.ndarray = particles[hypo_insert_pos - 1]
+    right_neigh: np.ndarray = particles[hypo_insert_pos]
+    assert left_neigh.size == right_neigh.size, "Size mismatch in neighbors."
+
+    # TODO continue here, see page 132 in book for projection step
+    return distr
 
 
 ####################
@@ -273,7 +319,7 @@ def categorical_dynamic_programming(mdp: MDP,
 def quantile_dynamic_programming(mdp: MDP, pi: Policy,
                                  cat_distr_col: CategoricalDistrCollection,
                                  no_of_quantiles: int) -> CategoricalDistrCollection:
-    """Quantile dynamic programming.
+    r"""Quantile dynamic programming.
 
     Execute one step of the quantile dynamic programming algorithm.
 
@@ -283,7 +329,6 @@ def quantile_dynamic_programming(mdp: MDP, pi: Policy,
     d onto a distribution with m atoms with equal probability. The i-th location / atom
     \\theta_i is obtained by calculating F^{-1}(2*i - 1 / 2m) where F is the cdf of d.
     """
-
     # get the initial quantile projection of cat_distr_col before any dbo application
     for idx, state in enumerate(cat_distr_col.states):
         cat_distr_col[idx] = RV_Discrete(
