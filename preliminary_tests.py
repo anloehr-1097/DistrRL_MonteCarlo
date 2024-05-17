@@ -298,18 +298,65 @@ def assert_equidistant_particles(particles: np.ndarray) -> bool:
 def categorical_projection(distr: Tuple[np.ndarray, np.ndarray],
                            particles: np.ndarray)\
                            -> Tuple[np.ndarray, np.ndarray]:
-    """Apply categorical projection as described in book to a distriution."""
-
+    """Apply categorical projection as described in book to a distribution."""
 
     # sort array
     hypo_insert_pos: np.ndarray = np.searchsorted(particles, distr[0])
+    if DEBUG:
+        print(f"Hypo insert pos: {hypo_insert_pos}")
 
     # determine closest neighbors
-    left_neigh: np.ndarray = particles[hypo_insert_pos - 1]
-    right_neigh: np.ndarray = particles[hypo_insert_pos]
-    assert left_neigh.size == right_neigh.size, "Size mismatch in neighbors."
+    left_neigh_index: np.ndarray = hypo_insert_pos - 1
+    right_neigh_index: np.ndarray = hypo_insert_pos
 
-    return distr
+    new_probs: np.ndarray = np.zeros(particles.size)
+
+    assert left_neigh_index.size == right_neigh_index.size, "Size mismatch in neighbors."
+    # left_neigh: np.ndarray = particles[hypo_insert_pos - 1]
+    # right_neigh: np.ndarray = particles[hypo_insert_pos]
+    # determine weights to assign to neighbors
+    # left_weight: np.ndarray = (right_neigh - distr[0]) / (right_neigh - left_neigh)
+    # right_weight: np.ndarray = 1 - left_weight
+
+    for i in range(left_neigh_index.size):
+        if (left_neigh_index[i] == -1) and (distr[0][i] < particles[0]):
+            # to the left of first particle -> left particle gets all of the mass
+            new_probs[0] += distr[1][i]
+
+        elif (right_neigh_index[i] == particles.size) and (distr[0][i] > particles[-1]):
+            # to the right of last particle -> right particle gets all of the mass
+            new_probs[-1] += distr[1][i]
+
+        else:
+            # assign mass to neighbors according to distance to neighbors
+            left_mass_i: np.float = 1 - np.abs(particles[left_neigh_index[i]] - distr[0][i])
+            right_mass_i: np.float = 1 - left_mass_i
+            new_probs[left_neigh_index[i]] += left_mass_i * distr[1][i]
+            new_probs[right_neigh_index[i]] += right_mass_i * distr[1][i]
+
+    if DEBUG:
+        print(f"Particles: {particles}")
+        print(f"Probs: {new_probs}")
+    return (particles, new_probs)
+
+
+def test_cat_proj():
+    """Test categorical projection."""
+    particles: np.ndarray = np.linspace(0, 10, 11)
+    values: np.ndarray = np.linspace(-0.5, 10.5, 12)
+    print(particles)
+    print(values)
+    probs: np.ndarray = np.ones(np.size(values))
+    probs = probs / np.sum(probs)
+    # probs: np.ndarray = np.random.random(20)
+    # probs = probs / np.sum(probs)
+    print(probs)
+    # assert np.isclose(np.sum(probs), 1), "Probs do not sum to 1." 
+    new_distr: Tuple[np.ndarray, np.ndarray] = categorical_projection(
+        (values, probs), particles)
+
+    assert np.isclose(np.sum(new_distr[1]), 1), "not a prob distribution after projection."
+    return None
 
 
 ####################
@@ -623,6 +670,13 @@ def main():
     return res
 
 
+def test():
+    """Run tests."""
+    test_cat_proj()
+    return None
+
+
 if __name__ == "__main__":
 
-    main()
+    # main()
+    test()
