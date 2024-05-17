@@ -2,7 +2,10 @@
 
 import numpy as np
 from typing import Tuple
-from ...preliminary_tests import categorical_projection
+# from ..preliminary_tests import categorical_projection
+# from .. import preliminary_tests as ptests
+from preliminary_tests import categorical_projection
+
 
 
 def test_cat_proj():
