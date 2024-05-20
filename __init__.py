@@ -1,1 +1,3 @@
-__package__ = 'drl_mt'
+__package__ = 'drl'
+import preliminary_tests.py
+
