@@ -7,6 +7,7 @@ import random
 import time
 from typing import Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
+
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as sp
@@ -28,6 +29,7 @@ REWARDS: Mapping = {
 
 
 DEBUG = True
+MAX_EPOCHS: int = 1000
 # need some initial collection of distrs for the total reward =: nu^0
 # need some return distributons
 # need samples from return distr for each triple (s, a, s') (N * |S| * |A| * |S|) many)
@@ -57,6 +59,12 @@ class Policy:
         """Return distribution over actions for given state."""
         assert self.probs[key].size == len(self.actions), "action - distr mismatch."
         return self.probs[key]
+
+
+    def sample_action(self, state: int):
+        assert self.probs[state].size == len(self.actions), "action - distr mismatch."
+        action = np.random.choice(self.actions, self.probs[state])
+        return action
 
 
 class TransitionKernel:
@@ -609,6 +617,26 @@ def plot_atomic_distr(distr: Tuple[np.ndarray, np.ndarray]) -> None:
     # print(np.sum(new_probs))
     plt.bar(new_vals, new_probs)
     # plt.show()
+    return None
+
+
+def monte_carlo_sim(mdp: MDP, policy: Policy, num_epochs: int=-1):
+    """Monte Carlo Simulation."""
+
+    mdp.set_policy(policy)
+    current_state: int = random.choice(list(mdp.states.keys()))
+
+    epoch: int = 0
+    while True:
+
+        # TODO simulate one epoch
+
+        epoch += 1
+        if ((num_epochs != -1) and (epoch >= num_epochs)) \
+            or (epoch > MAX_EPOCHS):
+
+            break
+
     return None
 
 
