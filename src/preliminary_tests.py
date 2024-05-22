@@ -644,7 +644,7 @@ def plot_atomic_distr(distr: Tuple[np.ndarray, np.ndarray]) -> None:
 
 def main():
     """Call main function."""
-    from sample_envs import cyclical_env
+    from .sample_envs import cyclical_env
     mdp = cyclical_env.mdp
     res = cyclical_env.total_reward_distr_estimate
     for i in range(1000):
@@ -654,13 +654,6 @@ def main():
     return res
 
 
-def test():
-    """Run tests."""
-    test_cat_proj()
-    return None
-
-
 if __name__ == "__main__":
 
-    # main()
-    test()
+    main()
