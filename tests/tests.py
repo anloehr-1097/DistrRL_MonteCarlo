@@ -5,7 +5,7 @@ from typing import Tuple
 # from ..preliminary_tests import categorical_projection
 # from .. import preliminary_tests as ptests
 # from ..preliminary_tests import categorical_projection
-from ..preliminary_tests import categorical_projection
+from src.preliminary_tests import categorical_projection
 
 
 
@@ -20,7 +20,7 @@ def test_cat_proj():
     # probs: np.ndarray = np.random.random(20)
     # probs = probs / np.sum(probs)
     print(probs)
-    # assert np.isclose(np.sum(probs), 1), "Probs do not sum to 1." 
+    # assert np.isclose(np.sum(probs), 1), "Probs do not sum to 1."
     new_distr: Tuple[np.ndarray, np.ndarray] = categorical_projection(
         (values, probs), particles)
 

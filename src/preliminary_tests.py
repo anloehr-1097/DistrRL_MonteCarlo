@@ -647,6 +647,7 @@ def main():
     mdp = cyclical_env.mdp
     res = cyclical_env.total_reward_distr_estimate
     for i in range(1000):
+        print(f"Iteration {i}")
         res = quantile_dynamic_programming(mdp, mdp.current_policy, res, 100)
 
     return res
@@ -660,5 +661,5 @@ def test():
 
 if __name__ == "__main__":
 
-    # main()
-    test()
+    main()
+    # test()
