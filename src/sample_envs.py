@@ -2,7 +2,7 @@
 
 from typing import List, Dict
 import numpy as np
-from preliminary_tests import (
+from .preliminary_tests import (
     RV_Discrete,
     CategoricalRewardDistr,
     CategoricalDistrCollection,
@@ -10,7 +10,7 @@ from preliminary_tests import (
     Policy,
     MDP,
 )
-from distributions import emp_normal
+from .distributions import emp_normal
 
 EMP_APPROX_SAMPLES = 500
 

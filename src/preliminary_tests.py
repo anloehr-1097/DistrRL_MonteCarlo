@@ -11,8 +11,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as sp
 from numba import njit, jit
-from nb_fun import _sort_njit
-from utils import assert_probs_distr
+
+from .nb_fun import _sort_njit
+from .utils import assert_probs_distr
 
 # States: Dict[int, AnyType] holding possibly holding state representation as vector
 # Actions: Dict[int, Tuple[List[int], List[float]]] holding possible actions, probablity pairs for each state
@@ -643,22 +644,16 @@ def plot_atomic_distr(distr: Tuple[np.ndarray, np.ndarray]) -> None:
 
 def main():
     """Call main function."""
-    from sample_envs import cyclical_env
+    from .sample_envs import cyclical_env
     mdp = cyclical_env.mdp
     res = cyclical_env.total_reward_distr_estimate
     for i in range(1000):
+        print(f"Iteration {i}")
         res = quantile_dynamic_programming(mdp, mdp.current_policy, res, 100)
 
     return res
 
 
-def test():
-    """Run tests."""
-    test_cat_proj()
-    return None
-
-
 if __name__ == "__main__":
 
-    # main()
-    test()
+    main()

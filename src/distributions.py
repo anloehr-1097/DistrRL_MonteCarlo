@@ -1,6 +1,6 @@
 import scipy.stats as sp
 import numpy as np
-from preliminary_tests import RV_Discrete
+from .preliminary_tests import RV_Discrete
 
 def emp_normal(mean: float=0, variance: float=1, size: int=100) -> np.ndarray:
     """Generate a sample from a normal distribution."""
