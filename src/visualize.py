@@ -2,7 +2,7 @@ from typing import Tuple
 import matplotlib.pyplot as plt
 import numpy as np
 import preliminary_tests
-from preliminary_tests import RV_Discrete
+from .preliminary_tests import RV_Discrete
 from sklearn.neighbors import KernelDensity
 
 
@@ -24,10 +24,22 @@ def get_pseudo_density(rv: RV_Discrete, kernel: str="gaussian") -> Tuple[np.ndar
     return x_range, np.exp(log_dens)
 
 
+def plot_cdf(rv: RV_Discrete) -> None:
+    """Plot the CDF of a discrete random variable."""
+
+    xs: np.ndarray = rv.distr()[0]
+    ps: np.ndarray = rv.distr()[1]
+    cdf: np.ndarray = np.cumsum(ps)
+    plt.plot(xs, cdf)
+    plt.show()
+    return None
+
+
 def main():
     rv: RV_Discrete = preliminary_tests.main()[0]
     get_pseudo_density(rv)
     return None
+
 
 if __name__ == '__main__':
     main()
