@@ -2,35 +2,48 @@
 
 import numpy as np
 from typing import Tuple
-# from ..preliminary_tests import categorical_projection
-# from .. import preliminary_tests as ptests
-# from ..preliminary_tests import categorical_projection
+import unittest
 from src.preliminary_tests import categorical_projection
 
+DEBUG: bool = False
 
 
-def test_cat_proj():
-    """Test categorical projection."""
-    particles: np.ndarray = np.linspace(0, 10, 11)
-    values: np.ndarray = np.linspace(-0.5, 10.5, 12)
-    print(particles)
-    print(values)
-    probs: np.ndarray = np.ones(np.size(values))
-    probs = probs / np.sum(probs)
-    # probs: np.ndarray = np.random.random(20)
-    # probs = probs / np.sum(probs)
-    print(probs)
-    # assert np.isclose(np.sum(probs), 1), "Probs do not sum to 1."
-    new_distr: Tuple[np.ndarray, np.ndarray] = categorical_projection(
-        (values, probs), particles)
+class TestCategoricalProjection(unittest.TestCase):
+    """Test code for categorical projection."""
 
-    assert np.isclose(np.sum(new_distr[1]), 1), "not a prob distribution after projection."
-    return None
+    def test_cat_proj(self):
+        """Test categorical projection."""
+        print("Testing categorical projection...")
 
-def run_tests():
-    test_cat_proj()
-    return None
+        # particles: np.ndarray = np.linspace(0, 3, 4)
+        # values: np.ndarray = np.ones(shape=(4, )) / particles.size
+        values: np.ndarray = np.array([-.5, .5, 1.5, 2.5])
+        probs: np.ndarray = np.ones(values.size) / values.size
+        particles: np.ndarray = np.array([-1, 0, 1, 2])
+
+        expected_probs: np.ndarray = np.array(
+            [0.5*0.25, 0.25, 0.25, (0.25*1.5)]
+        )
+
+        if DEBUG:
+            print(f"particles: {particles}")
+            print(f"values: {values}")
+            print(f"probs: {probs}")
+
+        self.assertTrue(np.isclose(np.sum(expected_probs), 1),
+                        "Expected probs do not sum to 1.")
+
+        new_distr: Tuple[np.ndarray, np.ndarray] = categorical_projection(
+            (values, probs), particles)
+
+        self.assertTrue(np.equal(new_distr[0], particles).all(),
+                        "Particles changed.")
+
+        self.assertTrue(np.isclose(new_distr[1], expected_probs).all(),
+                        "Categorical projection failed.")
+
+        return None
+
 
 if __name__ == "__main__":
-    test_cat_proj()
-    print("Everything passed")
+    unittest.main()
