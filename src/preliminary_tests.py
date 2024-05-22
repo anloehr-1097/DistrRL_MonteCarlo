@@ -11,8 +11,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as sp
 from numba import njit, jit
-from nb_fun import _sort_njit
-from utils import assert_probs_distr
+
+from .nb_fun import _sort_njit
+from .utils import assert_probs_distr
 
 # States: Dict[int, AnyType] holding possibly holding state representation as vector
 # Actions: Dict[int, Tuple[List[int], List[float]]] holding possible actions, probablity pairs for each state
@@ -661,5 +662,5 @@ def test():
 
 if __name__ == "__main__":
 
-    main()
-    # test()
+    # main()
+    test()
