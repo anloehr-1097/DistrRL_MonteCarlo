@@ -215,6 +215,18 @@ class MDP:
         """Check if state is terminal."""
         return state in self.terminal_states
 
+    def generate_random_policy(self) -> Policy:
+        """Generate random policy which may be used in the given MDP."""
+
+        probs: Dict[int, np.ndarray] = {}
+        states: Dict[int, int] = {}
+        for state in self.states:
+            states[state] = state
+            ps: np.ndarray = np.random.random(len(self.actions))
+            probs[state] = ps / np.sum(ps)
+
+        return Policy(states, self.actions, probs)
+
 
 class History:
     """History is list of tuples (state, action, next_state, reward)."""
