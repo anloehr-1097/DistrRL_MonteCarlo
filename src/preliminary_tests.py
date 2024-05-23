@@ -31,6 +31,7 @@ REWARDS: Mapping = {
 
 DEBUG = True
 MAX_EPOCHS: int = 1000
+TERMINAL: int = -1
 # need some initial collection of distrs for the total reward =: nu^0
 # need some return distributons
 # need samples from return distr for each triple (s, a, s') (N * |S| * |A| * |S|) many)
@@ -56,13 +57,12 @@ class Policy:
         self.actions: Sequence = actions
         self.probs: Dict[int, np.ndarray] = probs
 
-    def __getitem__(self, key: int):
+    def __getitem__(self, key: int) -> np.ndarray:
         """Return distribution over actions for given state."""
         assert self.probs[key].size == len(self.actions), "action - distr mismatch."
         return self.probs[key]
 
-
-    def sample_action(self, state: int):
+    def sample_action(self, state: int) -> int:
         assert self.probs[state].size == len(self.actions), "action - distr mismatch."
         action = np.random.choice(self.actions, self.probs[state])
         return action
@@ -92,7 +92,7 @@ class TransitionKernel:
         )
 
     def __getitem__(self, key: Tuple[int, int]) -> np.ndarray:
-        """Return distribution over actions for given state."""
+        """Return distribution over actions for given state, action pair."""
         return self.state_action_probs[key]
 
 
@@ -109,7 +109,7 @@ class RV_Discrete:
         return self.xk, self.pk
 
     def get_cdf(self) -> Tuple[np.ndarray, np.ndarray]:
-        #self._sort()
+        # self._sort()
         self._sort_njit()
         return self.xk, np.cumsum(self.pk)
 
@@ -121,6 +121,14 @@ class RV_Discrete:
 
     def _sort_njit(self):
         self.xk, self.pk = _sort_njit(self.xk, self.pk)
+
+    def sample(self) -> float:
+        """Sample from distribution."""
+        return np.random.choice(self.xk, p=self.pk)
+
+    def __call__(self) -> float:
+        """Sample from distribution."""
+        return self.sample()
 
 
 class CategoricalDistrCollection:
@@ -145,16 +153,13 @@ class CategoricalDistrCollection:
         self.distr[key] = value
 
 
-        
-
-
 class CategoricalRewardDistr:
     """Return Distribution with finite support."""
 
     def __init__(
         self,
-        state_action_pairs: List[Tuple[int, int, int]],
-        distributions: List[RV_Discrete],
+            state_action_pairs: List[Tuple[int, int, int]],  # (s,a,s')
+            distributions: List[RV_Discrete],
     ) -> None:
         """Initialize return distribution."""
         self.returns: Dict[Tuple[int, int, int], RV_Discrete] = {
@@ -193,6 +198,32 @@ class MDP:
     def set_policy(self, policy: Policy) -> None:
         """Set policy."""
         self.current_policy = policy
+
+    def sample_next_state_reward(self, state: int, action: int) -> Tuple[int, float]:
+        """Sample next state and reward."""
+        if self.check_if_terminal(state):
+            return -1, 0.0
+
+        next_state_probs: np.ndarray = self.trasition_probs[(state, action)]
+        next_state: int = np.random.choice(self.states, p=next_state_probs)
+        reward: float = self.rewards[(state, action, next_state)]()
+        return next_state, reward
+
+    def check_if_terminal(self, state: int) -> bool:
+        """Check if state is terminal."""
+        return state in self.terminal_states
+
+
+class History:
+    """History is list of tuples (state, action, next_state, reward)."""
+
+    def __init__(self) -> None:
+        """Initialize history."""
+        self.history: List[Tuple[int, int, int, float]] = []
+
+    def write(self, state: int, action: int, next_state: int, reward: float) -> None:
+        """Write to history."""
+        self.history.append((state, action, next_state, reward))
 
 
 ######################
@@ -631,43 +662,40 @@ def simulate_one_step(
     return g_t
 
 
-def plot_atomic_distr(distr: Tuple[np.ndarray, np.ndarray]) -> None:
-    """Plot atomic distribution."""
-    num_atom: int = distr[0].size
-    x_min: np.float64 = np.min(distr[0])
-    x_max: np.float64 = np.max(distr[0])
-
-    # bins: np.ndarray = np.digitize(distr[0], np.linspace(x_min, x_max, num_atom // 5))
-    new_vals: np.ndarray
-    new_probs: np.ndarray
-    new_vals, new_probs = project_eqi(
-        values=distr[0], probs=distr[1], no_of_bins=num_atom // 40, state=1
-    )
-
-    # print(np.sum(new_probs))
-    plt.bar(new_vals, new_probs)
-    # plt.show()
-    return None
-
-
-def monte_carlo_sim(mdp: MDP, policy: Policy, num_epochs: int=-1):
-    """Monte Carlo Simulation."""
+def monte_carlo_eval(mdp: MDP, policy: Policy,
+                     num_epochs: int=-1) -> History:
+    """Monte Carlo Simulation with a fixed policy."""
 
     mdp.set_policy(policy)
     current_state: int = random.choice(list(mdp.states.keys()))
+    history: History = History()
 
     epoch: int = 0
     while True:
-
-        # TODO simulate one epoch
-
+        current_state = one_step_monte_carlo(mdp, current_state, history)
         epoch += 1
         if ((num_epochs != -1) and (epoch >= num_epochs)) \
-            or (epoch > MAX_EPOCHS):
-
+           or (epoch > MAX_EPOCHS):
             break
 
-    return None
+    return history
+
+
+def one_step_monte_carlo(mdp: MDP, state: int, hist: History) -> int:
+    """One step of Monte Carlo Simulation.
+
+    TODO:
+    Return action, next state and reward, write to history
+    """
+    next_state: int
+    reward: float
+    policy: Policy = mdp.current_policy
+    action: int = policy.sample_action(state)
+    next_state, reward = mdp.sample_next_state_reward(state, action)
+    hist.write(state, action, next_state, reward)
+
+    return next_state, reward
+
 
 
 def main():
