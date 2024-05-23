@@ -42,6 +42,8 @@ TERMINAL: int = -1
 
 
 class Policy:
+    """Random policy."""
+
     def __init__(
         self, states: Mapping, actions: Sequence, probs: Dict[int, np.ndarray]
     ):
@@ -662,17 +664,32 @@ def simulate_one_step(
     return g_t
 
 
-def monte_carlo_eval(mdp: MDP, policy: Policy,
-                     num_epochs: int=-1) -> History:
-    """Monte Carlo Simulation with a fixed policy."""
+def monte_carlo_eval(mdp: MDP, policy: Policy, num_epochs: int=-1) -> \
+        Dict[int, History]:
+    """Monte Carlo Simulation with fixed policy.
 
+    Given mdp, policy, num epochs, return sample trajectory for each state.
+
+    """
     mdp.set_policy(policy)
-    current_state: int = random.choice(list(mdp.states.keys()))
+    histories: Dict[int, History] = {}
+
+    for state in mdp.states.keys():
+        history: History = monte_carlo_eval_initial_state(
+            mdp, state, policy, num_epochs)
+        histories[state] = history
+    return histories
+
+
+def monte_carlo_eval_initial_state(mdp: MDP, state: int, policy: Policy,
+                                   num_epochs: int=-1) -> History:
+    """Monte Carlo Simulation with a fixed policy and initial state."""
+    mdp.set_policy(policy)
     history: History = History()
 
     epoch: int = 0
     while True:
-        current_state = one_step_monte_carlo(mdp, current_state, history)
+        state = one_step_monte_carlo(mdp, state, history)
         epoch += 1
         if ((num_epochs != -1) and (epoch >= num_epochs)) \
            or (epoch > MAX_EPOCHS):
@@ -695,7 +712,6 @@ def one_step_monte_carlo(mdp: MDP, state: int, hist: History) -> int:
     hist.write(state, action, next_state, reward)
 
     return next_state, reward
-
 
 
 def main():
