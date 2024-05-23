@@ -66,7 +66,7 @@ class Policy:
 
     def sample_action(self, state: int) -> int:
         assert self.probs[state].size == len(self.actions), "action - distr mismatch."
-        action = np.random.choice(self.actions, self.probs[state])
+        action = np.random.choice(self.actions, p=self.probs[state])
         return action
 
 
@@ -207,7 +207,8 @@ class MDP:
             return -1, 0.0
 
         next_state_probs: np.ndarray = self.trasition_probs[(state, action)]
-        next_state: int = np.random.choice(self.states, p=next_state_probs)
+        next_state: int = np.random.choice(np.asarray([*self.states.keys()]),
+                                           p=next_state_probs)
         reward: float = self.rewards[(state, action, next_state)]()
         return next_state, reward
 
@@ -687,6 +688,8 @@ def monte_carlo_eval(mdp: MDP, policy: Policy, num_epochs: int=-1) -> \
     histories: Dict[int, History] = {}
 
     for state in mdp.states.keys():
+        if DEBUG:
+            print(f"Monte Carlo evaluation for state: {state}")
         history: History = monte_carlo_eval_initial_state(
             mdp, state, policy, num_epochs)
         histories[state] = history
@@ -701,6 +704,8 @@ def monte_carlo_eval_initial_state(mdp: MDP, state: int, policy: Policy,
 
     epoch: int = 0
     while True:
+        if DEBUG:
+            print(f"Epoch: {epoch+1}")
         state = one_step_monte_carlo(mdp, state, history)
         epoch += 1
         if ((num_epochs != -1) and (epoch >= num_epochs)) \
@@ -723,19 +728,23 @@ def one_step_monte_carlo(mdp: MDP, state: int, hist: History) -> int:
     next_state, reward = mdp.sample_next_state_reward(state, action)
     hist.write(state, action, next_state, reward)
 
-    return next_state, reward
+    return next_state
 
 
 def main():
     """Call main function."""
     from .sample_envs import cyclical_env
     mdp = cyclical_env.mdp
-    res = cyclical_env.total_reward_distr_estimate
-    for i in range(1000):
-        print(f"Iteration {i}")
-        res = quantile_dynamic_programming(mdp, mdp.current_policy, res, 100)
+    policy = mdp.generate_random_policy()
 
-    return res
+    histories = monte_carlo_eval(mdp, policy, 10)
+
+    return None
+    # res = cyclical_env.total_reward_distr_estimate
+    # for i in range(1000):
+        # print(f"Iteration {i}")
+        # res = quantile_dynamic_programming(mdp, mdp.current_policy, res, 100)
+    # return res
 
 
 if __name__ == "__main__":

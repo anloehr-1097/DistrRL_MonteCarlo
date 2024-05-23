@@ -15,6 +15,7 @@ scikit-learn = "*"
 black = "*"
 black-macchiato = "*"
 ipdb = "*"
+debugpy = "*"
 
 [dev-packages]
 ipykernel = "*"
