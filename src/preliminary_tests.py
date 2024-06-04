@@ -229,7 +229,7 @@ class MDP:
         return Policy(states, self.actions, probs)
 
 
-class History:
+class Trajectory:
     """History is list of tuples (state, action, next_state, reward)."""
 
     def __init__(self) -> None:
@@ -239,6 +239,19 @@ class History:
     def write(self, state: int, action: int, next_state: int, reward: float) -> None:
         """Write to history."""
         self.history.append((state, action, next_state, reward))
+
+    def aggregate_returns(self, gamma: np.float64) -> np.float64:
+        """Aggregate returns."""
+        returns: np.ndarray = np.asarray(self._get_returns())
+        exponentiator: np.ndarray = np.arange(returns.size)
+        gamma_ar: np.ndarray = np.ones(returns.size) * gamma
+        gamma_ar = np.power(gamma_ar, exponentiator)
+        returns = returns * gamma_ar
+        return np.sum(returns)
+
+    def _get_returns(self) -> List[float]:
+        """Return list of returns."""
+        return [t[-1] for t in self.history]
 
 
 ######################
@@ -677,36 +690,65 @@ def simulate_one_step(
     return g_t
 
 
-def monte_carlo_eval(mdp: MDP, policy: Policy, num_epochs: int=-1) -> \
-        Dict[int, History]:
+def monte_carlo_eval(mdp: MDP, policy: Policy, num_trajectories: int=20,
+                     num_epochs: int=-1) -> Dict[int, RV_Discrete]:
+    """Monte Carlo Simulation with fixed policy.
+
+    Run num_trajectories many simulations for each state with each trajectory
+    running for num_epochs.
+
+    Return the return distributions for each state obtained in this way.
+    """
+    # create Dict[state, est_return_distr]
+    est_return_distr: Dict[int, RV_Discrete] = {}
+    traj_res_arary: Dict[int, List] = {i: [] for i in mdp.states.keys()}
+
+    for traj_no in range(num_trajectories):
+        trajectories: Dict[int, Trajectory] = \
+            monte_carlo_trajectories(mdp, policy, num_epochs)
+        for state in mdp.states.keys():
+            traj_res_arary[state].append(trajectories[state].history)
+
+
+
+        
+
+
+    return None
+
+
+
+def monte_carlo_trajectories(mdp: MDP, policy: Policy, num_epochs: int=-1) -> \
+        Dict[int, Trajectory]:
     """Monte Carlo Simulation with fixed policy.
 
     Given mdp, policy, num epochs, return sample trajectory for each state.
-
+    Single trajectory runs for num_epochs if num_epochs > 0.
+    Else runs until MAX_EPOCHS is reached.
     """
     mdp.set_policy(policy)
-    histories: Dict[int, History] = {}
+    trajectories: Dict[int, Trajectory] = {}
 
     for state in mdp.states.keys():
         if DEBUG:
             print(f"Monte Carlo evaluation for state: {state}")
-        history: History = monte_carlo_eval_initial_state(
+        trajectory: Trajectory = monte_carlo_eval_single_trajectory(
             mdp, state, policy, num_epochs)
-        histories[state] = history
-    return histories
+        trajectories[state] = trajectory
+    return trajectories
 
 
-def monte_carlo_eval_initial_state(mdp: MDP, state: int, policy: Policy,
-                                   num_epochs: int=-1) -> History:
+def monte_carlo_eval_single_trajectory(mdp: MDP, state: int, policy: Policy,
+                                   num_epochs: int=-1) -> Trajectory:
     """Monte Carlo Simulation with a fixed policy and initial state."""
     mdp.set_policy(policy)
-    history: History = History()
+    trajectory: Trajectory = Trajectory()
 
     epoch: int = 0
     while True:
         if DEBUG:
             print(f"Epoch: {epoch+1}")
-        state = one_step_monte_carlo(mdp, state, history)
+        state = one_step_monte_carlo(mdp, state, trajectory)
         epoch += 1
         if ((num_epochs != -1) and (epoch >= num_epochs)) \
            or (epoch > MAX_EPOCHS):
@@ -715,7 +757,7 @@ def monte_carlo_eval_initial_state(mdp: MDP, state: int, policy: Policy,
     return history
 
 
-def one_step_monte_carlo(mdp: MDP, state: int, hist: History) -> int:
+def one_step_monte_carlo(mdp: MDP, state: int, trajectory: Trajectory) -> int:
     """One step of Monte Carlo Simulation.
 
     TODO:
@@ -726,7 +768,7 @@ def one_step_monte_carlo(mdp: MDP, state: int, hist: History) -> int:
     policy: Policy = mdp.current_policy
     action: int = policy.sample_action(state)
     next_state, reward = mdp.sample_next_state_reward(state, action)
-    hist.write(state, action, next_state, reward)
+    trajectory.write(state, action, next_state, reward)
 
     return next_state
 
@@ -737,7 +779,7 @@ def main():
     mdp = cyclical_env.mdp
     policy = mdp.generate_random_policy()
 
-    histories = monte_carlo_eval(mdp, policy, 10)
+    trajectories = monte_carlo_eval(mdp, policy, 10)
 
     return None
     # res = cyclical_env.total_reward_distr_estimate
