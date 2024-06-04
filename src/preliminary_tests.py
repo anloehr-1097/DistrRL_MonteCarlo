@@ -780,7 +780,9 @@ def main():
     mdp = cyclical_env.mdp
     policy = mdp.generate_random_policy()
 
-    trajectories = monte_carlo_eval(mdp, policy, 10)
+    approx_distr_mc: Dict[int, RV_Discrete] = monte_carlo_eval(
+        mdp, policy, 10)
+
 
     return None
     # res = cyclical_env.total_reward_distr_estimate
