@@ -702,20 +702,21 @@ def monte_carlo_eval(mdp: MDP, policy: Policy, num_trajectories: int=20,
     # create Dict[state, est_return_distr]
     est_return_distr: Dict[int, RV_Discrete] = {}
     traj_res_arary: Dict[int, List] = {i: [] for i in mdp.states.keys()}
-
+    trajectories: Dict[int, Trajectory]
     for traj_no in range(num_trajectories):
-        trajectories: Dict[int, Trajectory] = \
+        trajectories = \
             monte_carlo_trajectories(mdp, policy, num_epochs)
         for state in mdp.states.keys():
-            traj_res_arary[state].append(trajectories[state].history)
+            traj_res_arary[state].append(
+                trajectories[state].aggregate_returns(mdp.gamma)
+            )
 
-
-
-        
-
-
-    return None
-
+    for state in mdp.states.keys():
+        # create distribution from trajectory results
+        est_return_distr[state] = RV_Discrete(
+            traj_res_arary[state],
+            np.ones(num_trajectories) / num_trajectories)
+    return est_return_distr
 
 
 def monte_carlo_trajectories(mdp: MDP, policy: Policy, num_epochs: int=-1) -> \
@@ -754,7 +755,7 @@ def monte_carlo_eval_single_trajectory(mdp: MDP, state: int, policy: Policy,
            or (epoch > MAX_EPOCHS):
             break
 
-    return history
+    return trajectory
 
 
 def one_step_monte_carlo(mdp: MDP, state: int, trajectory: Trajectory) -> int:
