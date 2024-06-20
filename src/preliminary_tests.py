@@ -103,6 +103,8 @@ class RV_Discrete:
 
     def __init__(self, xk, pk) -> None:
         """Initialize discrete random variable."""
+        assert isinstance(xk, np.ndarray) and isinstance(pk, np.ndarray), \
+            "Not numpy arrays upon creation of RV_Discrete."
         self.xk: np.ndarray = xk
         self.pk: np.ndarray = pk
 
@@ -714,7 +716,7 @@ def monte_carlo_eval(mdp: MDP, policy: Policy, num_trajectories: int=20,
     for state in mdp.states.keys():
         # create distribution from trajectory results
         est_return_distr[state] = RV_Discrete(
-            traj_res_arary[state],
+            np.asarray(traj_res_arary[state]),
             np.ones(num_trajectories) / num_trajectories)
     return est_return_distr
 
@@ -766,7 +768,8 @@ def one_step_monte_carlo(mdp: MDP, state: int, trajectory: Trajectory) -> int:
     """
     next_state: int
     reward: float
-    policy: Policy = mdp.current_policy
+    policy: Policy = mdp.current_policy if mdp.current_policy is not None \
+        else mdp.generate_random_policy()
     action: int = policy.sample_action(state)
     next_state, reward = mdp.sample_next_state_reward(state, action)
     trajectory.write(state, action, next_state, reward)
