@@ -12,7 +12,7 @@ from .preliminary_tests import (
 )
 from .distributions import emp_normal
 
-EMP_APPROX_SAMPLES = 1000
+EMP_APPROX_SAMPLES = 500
 
 class SimulationEnv:
     def __init__(
