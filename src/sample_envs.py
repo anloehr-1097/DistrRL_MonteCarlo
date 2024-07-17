@@ -12,7 +12,7 @@ from .preliminary_tests import (
 )
 from .distributions import emp_normal
 
-EMP_APPROX_SAMPLES = 500
+EMP_APPROX_SAMPLES = 1000
 
 class SimulationEnv:
     def __init__(
@@ -77,9 +77,9 @@ cyclical_transition_kernel = TransitionKernel(cyclical_states, cyclical_actions,
 
 # reward distributions for (state, action, next_state) triples
 # set samples for empirical approximation
-cyclical_r_001 = emp_normal(-3, 1, EMP_APPROX_SAMPLES)
-cyclical_r_102 = emp_normal(5, 2, EMP_APPROX_SAMPLES)
-cyclical_r_200 = emp_normal(0, 0.5, EMP_APPROX_SAMPLES)
+cyclical_r_001 = emp_normal(-3, np.sqrt(1), EMP_APPROX_SAMPLES)
+cyclical_r_102 = emp_normal(5, np.sqrt(2), EMP_APPROX_SAMPLES)
+cyclical_r_200 = emp_normal(0, np.sqrt(0.5), EMP_APPROX_SAMPLES)
 cyclical_state_action_state = [(0, 0, 1), (1, 0, 2), (2, 0, 0)]
 
 cyclical_rewards = CategoricalRewardDistr(state_action_pairs=\
