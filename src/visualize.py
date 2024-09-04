@@ -2,14 +2,14 @@ from typing import Tuple, List, TYPE_CHECKING
 import matplotlib.pyplot as plt
 import numpy as np
 # import preliminary_tests
-from .preliminary_tests import RV_Discrete
+from .preliminary_tests import RV
 from sklearn.neighbors import KernelDensity
 
 if TYPE_CHECKING:
     from matplotlib.lines import Line2D
 
 
-def get_pseudo_density(rv: RV_Discrete, kernel: str="gaussian") -> Tuple[np.ndarray, np.ndarray]:
+def get_pseudo_density(rv: RV, kernel: str="gaussian") -> Tuple[np.ndarray, np.ndarray]:
     """"Plot a pseudo density function of a discrete random variable."""
     xs: np.ndarray = rv.distr()[0]
     ps: np.ndarray = rv.distr()[1]
@@ -27,7 +27,7 @@ def get_pseudo_density(rv: RV_Discrete, kernel: str="gaussian") -> Tuple[np.ndar
     return x_range, np.exp(log_dens)
 
 
-def plot_cdf(rv: RV_Discrete) -> List["Line2D"]:
+def plot_cdf(rv: RV) -> List["Line2D"]:
     """Plot the CDF of a discrete random variable."""
 
     rv._sort_njit()

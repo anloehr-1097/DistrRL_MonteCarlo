@@ -3,9 +3,9 @@
 from typing import List, Dict
 import numpy as np
 from .preliminary_tests import (
-    RV_Discrete,
-    CategoricalRewardDistr,
-    CategoricalDistrCollection,
+    RV,
+    RewardDistributionCollection,
+    ReturnDistributionFunction,
     TransitionKernel,
     Policy,
     MDP,
@@ -16,7 +16,7 @@ EMP_APPROX_SAMPLES = 500
 
 class SimulationEnv:
     def __init__(
-        self, mdp: MDP, total_reward_distr_estimate: CategoricalDistrCollection
+        self, mdp: MDP, total_reward_distr_estimate: ReturnDistributionFunction
     ):
         self.mdp = mdp
         self.total_reward_distr_estimate = total_reward_distr_estimate
@@ -27,8 +27,8 @@ class SimulationEnv:
 bernoulli_mdp: MDP = MDP(
     states=[0],
     actions=[0],
-    rewards=CategoricalRewardDistr(
-        [(0, 0, 0)], [RV_Discrete(np.array([0.0, 1.0]), np.array([0.5, 0.5]))]
+    rewards=RewardDistributionCollection(
+        [(0, 0, 0)], [RV(np.array([0.0, 1.0]), np.array([0.5, 0.5]))]
     ),
     gamma=np.array([0.5]),
     transition_probs=TransitionKernel([0], [0], {(0, 0): np.array([1.0])}),
@@ -40,13 +40,13 @@ bernoulli_pi: Policy = Policy(
     probs={0: np.array([1.0])},
 )
 
-bernoulli_distribution_1: RV_Discrete = RV_Discrete(
+bernoulli_distribution_1: RV = RV(
     xk=np.array([-3.0, 1.0]), pk=np.array([0.5, 0.5])
 )
-bernoulli_distributions: List[RV_Discrete] = [bernoulli_distribution_1]
+bernoulli_distributions: List[RV] = [bernoulli_distribution_1]
 
-bernoulli_total_reward_distr_estimate: CategoricalDistrCollection = (
-    CategoricalDistrCollection(bernoulli_mdp.states, bernoulli_distributions)
+bernoulli_total_reward_distr_estimate: ReturnDistributionFunction = (
+    ReturnDistributionFunction(bernoulli_mdp.states, bernoulli_distributions)
 )
 bernoulli_mdp.set_policy(bernoulli_pi)
 
@@ -82,7 +82,7 @@ cyclical_r_102 = emp_normal(5, np.sqrt(2), EMP_APPROX_SAMPLES)
 cyclical_r_200 = emp_normal(0, np.sqrt(0.5), EMP_APPROX_SAMPLES)
 cyclical_state_action_state = [(0, 0, 1), (1, 0, 2), (2, 0, 0)]
 
-cyclical_rewards = CategoricalRewardDistr(state_action_pairs=\
+cyclical_rewards = RewardDistributionCollection(state_action_pairs=\
                                           cyclical_state_action_state,
                                           distributions=\
                                           [cyclical_r_001, cyclical_r_102,
@@ -90,21 +90,21 @@ cyclical_rewards = CategoricalRewardDistr(state_action_pairs=\
 
 
 # initial total reward distributions for each state 
-cyclical_distribution_1: RV_Discrete = RV_Discrete(
+cyclical_distribution_1: RV = RV(
     xk=np.array([-3.0, 1.0]), pk=np.array([0.5, 0.5])
 )
-cyclical_distribution_2: RV_Discrete = RV_Discrete(
+cyclical_distribution_2: RV = RV(
     xk=np.array([-3.0, 1.0]), pk=np.array([0.5, 0.5])
 )
-cyclical_distribution_3: RV_Discrete = RV_Discrete(
+cyclical_distribution_3: RV = RV(
     xk=np.array([-3.0, 1.0]), pk=np.array([0.5, 0.5])
 )
-cyclical_distributions: List[RV_Discrete] = [cyclical_distribution_1,
+cyclical_distributions: List[RV] = [cyclical_distribution_1,
                                              cyclical_distribution_2,
                                              cyclical_distribution_3]
 
-cyclical_total_reward_distr_estimate: CategoricalDistrCollection = (
-    CategoricalDistrCollection(cyclical_states,
+cyclical_total_reward_distr_estimate: ReturnDistributionFunction = (
+    ReturnDistributionFunction(cyclical_states,
                                cyclical_distributions)
 )
 

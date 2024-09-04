@@ -98,7 +98,7 @@ class TransitionKernel:
         return self.state_action_probs[key]
 
 
-class RV_Discrete:
+class RV:
     """Discrete atomic random variable."""
 
     def __init__(self, xk, pk) -> None:
@@ -135,42 +135,42 @@ class RV_Discrete:
         return self.sample()
 
 
-class CategoricalDistrCollection:
-    """Collection of categorical distributions."""
+class ReturnDistributionFunction:
+    """Return Distribution Function to a given policy."""
 
     # TODO instead of using tuple directly, use RV_Discrete
 
-    def __init__(self, states: Sequence[int], distributions: List[RV_Discrete]) -> None:
+    def __init__(self, states: Sequence[int], distributions: List[RV]) -> None:
         """Initialize collection of categorical distributions."""
         self.states: Sequence = states
         self.distr: Dict = {s: distributions[i] for i, s in enumerate(states)}
 
-    def __getitem__(self, key: int) -> RV_Discrete:
+    def __getitem__(self, key: int) -> RV:
         """Return distribution for state."""
         return self.distr[key]
 
     def __len__(self) -> int:
         return len(self.states)
 
-    def __setitem__(self, key: int, value: RV_Discrete) -> None:
+    def __setitem__(self, key: int, value: RV) -> None:
         """Set distribution for state."""
         self.distr[key] = value
 
 
-class CategoricalRewardDistr:
+class RewardDistributionCollection:
     """Return Distribution with finite support."""
 
     def __init__(
         self,
             state_action_pairs: List[Tuple[int, int, int]],  # (s,a,s')
-            distributions: List[RV_Discrete],
+            distributions: List[RV],
     ) -> None:
         """Initialize return distribution."""
-        self.returns: Dict[Tuple[int, int, int], RV_Discrete] = {
+        self.returns: Dict[Tuple[int, int, int], RV] = {
             s: d for s, d in zip(state_action_pairs, distributions)
         }
 
-    def __getitem__(self, key: Tuple[int, int, int]) -> RV_Discrete:
+    def __getitem__(self, key: Tuple[int, int, int]) -> RV:
         """Return RV_Discrete for (state, action, next_state) triple."""
         return self.returns[key]
 
@@ -178,13 +178,11 @@ class CategoricalRewardDistr:
 class MDP:
     """Markov decision process."""
 
-    # def __init__(self, states: Sequence, actions: Mapping, rewards: CategoricalRewardDistr,
-    #              transition_probs: TransitionKernel,terminal_states: Optional[Sequence[int]]=None):
     def __init__(
         self,
         states: Sequence,
         actions: Sequence,
-        rewards: CategoricalRewardDistr,
+        rewards: RewardDistributionCollection,
         transition_probs: TransitionKernel,
         terminal_states: Sequence[int] = [],
         gamma: np.float64 = np.float64(0.5),
@@ -192,7 +190,7 @@ class MDP:
         """Initialize MDP."""
         self.states: Dict = {i: s for i, s in enumerate(states)}
         self.actions: Sequence = actions
-        self.rewards: CategoricalRewardDistr = rewards
+        self.rewards: RewardDistributionCollection = rewards
         # self.rewards: RV_Discrete = rewards
         self.trasition_probs: TransitionKernel = transition_probs
         self.current_policy: Optional[Policy] = None
@@ -260,8 +258,8 @@ class Trajectory:
 # Algorithm 5.1      #
 ######################
 def categorical_dbo(
-    mdp: MDP, pi: Policy, cat_distr_col: CategoricalDistrCollection
-) -> CategoricalDistrCollection:
+    mdp: MDP, pi: Policy, cat_distr_col: ReturnDistributionFunction
+) -> ReturnDistributionFunction:
     """Run Algorithm 5.1 categorical distributional bellman operator from book.
 
     Simple implementation of Algorithm 5.1 from the book without
@@ -274,7 +272,7 @@ def categorical_dbo(
 
         ensure that all states in collection are states in the mdp
     """
-    ret_distr: List[RV_Discrete] = []
+    ret_distr: List[RV] = []
 
     for state in cat_distr_col.states:
         new_vals: List = []
@@ -305,11 +303,11 @@ def categorical_dbo(
 
         # ready to update \theta(x), store in list
         ret_distr.append(
-            RV_Discrete(np.concatenate(new_vals), np.concatenate(new_probs))
+            RV(np.concatenate(new_vals), np.concatenate(new_probs))
         )
 
     # final collection of distributions along all states
-    ret_cat_distr_coll: CategoricalDistrCollection = CategoricalDistrCollection(
+    ret_cat_distr_coll: ReturnDistributionFunction = ReturnDistributionFunction(
         states=cat_distr_col.states, distributions=ret_distr
     )
     return ret_cat_distr_coll
@@ -322,9 +320,9 @@ def categorical_dbo(
 ####################
 def categorical_dynamic_programming(mdp: MDP,
                                     pi: Policy,
-                                    cat_distr_col: CategoricalDistrCollection,
+                                    cat_distr_col: ReturnDistributionFunction,
                                     particles: np.ndarray)\
-                                    -> CategoricalDistrCollection:
+                                    -> ReturnDistributionFunction:
 
     """Categorical dynamic programming.
 
@@ -344,17 +342,17 @@ def categorical_dynamic_programming(mdp: MDP,
 
     # apply categorical projection to initial distribution
     for idx, state in enumerate(cat_distr_col.states):
-        cat_distr_col[idx] = RV_Discrete(
+        cat_distr_col[idx] = RV(
             *categorical_projection(cat_distr_col[state].distr(),
                                     particles))
 
     # apply algo 5.1
-    dbo_result: CategoricalDistrCollection = categorical_dbo(mdp, pi,
+    dbo_result: ReturnDistributionFunction = categorical_dbo(mdp, pi,
                                                              cat_distr_col)
 
     # for each state, apply quantalie projection
     for idx, state in enumerate(dbo_result.states):
-        dbo_result[state] = RV_Discrete(
+        dbo_result[state] = RV(
             *categorical_projection(dbo_result[state].distr(), particles))
     return dbo_result
 
@@ -415,8 +413,8 @@ def categorical_projection(distr: Tuple[np.ndarray, np.ndarray],
 # Algorithm 5.4    #
 ####################
 def quantile_dynamic_programming(mdp: MDP, pi: Policy,
-                                 cat_distr_col: CategoricalDistrCollection,
-                                 no_of_quantiles: int) -> CategoricalDistrCollection:
+                                 cat_distr_col: ReturnDistributionFunction,
+                                 no_of_quantiles: int) -> ReturnDistributionFunction:
     r"""Quantile dynamic programming.
 
     Execute one step of the quantile dynamic programming algorithm.
@@ -429,15 +427,15 @@ def quantile_dynamic_programming(mdp: MDP, pi: Policy,
     """
     # get the initial quantile projection of cat_distr_col before any dbo application
     for idx, state in enumerate(cat_distr_col.states):
-        cat_distr_col[idx] = RV_Discrete(
+        cat_distr_col[idx] = RV(
             *quantile_projection(cat_distr_col[state].distr(), no_of_quantiles))
 
     # apply algo 5.1
-    dbo_result: CategoricalDistrCollection = categorical_dbo(mdp, pi, cat_distr_col)
+    dbo_result: ReturnDistributionFunction = categorical_dbo(mdp, pi, cat_distr_col)
 
     # for each state, apply quantalie projection
     for idx, state in enumerate(dbo_result.states):
-        dbo_result[state] = RV_Discrete(
+        dbo_result[state] = RV(
             *quantile_projection(dbo_result[state].distr(), no_of_quantiles))
     return dbo_result
 
@@ -499,7 +497,7 @@ def quantile_projection(distr: Tuple[np.ndarray, np.ndarray],
     return vals[quantile_locs], (np.ones(no_of_bins) / no_of_bins)
 
 
-def scale(distr: RV_Discrete, gamma: np.float64) -> RV_Discrete:
+def scale(distr: RV, gamma: np.float64) -> RV:
     """Scale distribution by factor."""
     distr.xk *= gamma
     return distr
@@ -693,7 +691,7 @@ def simulate_one_step(
 
 
 def monte_carlo_eval(mdp: MDP, policy: Policy, num_trajectories: int=20,
-                     num_epochs: int=-1) -> Dict[int, RV_Discrete]:
+                     num_epochs: int=-1) -> Dict[int, RV]:
     """Monte Carlo Simulation with fixed policy.
 
     Run num_trajectories many simulations for each state with each trajectory
@@ -702,7 +700,7 @@ def monte_carlo_eval(mdp: MDP, policy: Policy, num_trajectories: int=20,
     Return the return distributions for each state obtained in this way.
     """
     # create Dict[state, est_return_distr]
-    est_return_distr: Dict[int, RV_Discrete] = {}
+    est_return_distr: Dict[int, RV] = {}
     traj_res_arary: Dict[int, List] = {i: [] for i in mdp.states.keys()}
     trajectories: Dict[int, Trajectory]
     for traj_no in range(num_trajectories):
@@ -715,7 +713,7 @@ def monte_carlo_eval(mdp: MDP, policy: Policy, num_trajectories: int=20,
 
     for state in mdp.states.keys():
         # create distribution from trajectory results
-        est_return_distr[state] = RV_Discrete(
+        est_return_distr[state] = RV(
             np.asarray(traj_res_arary[state]),
             np.ones(num_trajectories) / num_trajectories)
     return est_return_distr
@@ -783,7 +781,7 @@ def main():
     mdp = cyclical_env.mdp
     policy = mdp.generate_random_policy()
 
-    approx_distr_mc: Dict[int, RV_Discrete] = monte_carlo_eval(
+    approx_distr_mc: Dict[int, RV] = monte_carlo_eval(
         mdp, policy, 10)
 
 
