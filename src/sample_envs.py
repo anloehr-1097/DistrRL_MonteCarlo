@@ -1,6 +1,6 @@
 """Definition of some sample envs (mdp + return distr funcs) for testing."""
 
-from typing import List, Dict
+from typing import List, Dict, Mapping
 import numpy as np
 from .preliminary_tests import (
     RV,
@@ -59,7 +59,10 @@ bernoulli_env: SimulationEnv = SimulationEnv(
 
 ### Define cyclical test case from paper ###
 
-cyclical_states = [0, 1, 2]
+
+cyclical_states: Mapping[str, int] = {str(i): i for i in [0, 1, 2]}
+
+
 cyclical_actions = [0]
 
 cyclical_state_action_probs = {0: np.array([1.0]),
@@ -73,8 +76,9 @@ cyclical_transition_probs = {(0, 0): np.array([0.0, 1.0, 0.0]),
                              (1, 0): np.array([0.0, 0.0, 1.0]),
                              (2, 0): np.array([1.0, 0.0, 0.0])}
 
-cyclical_transition_kernel = TransitionKernel(cyclical_states, cyclical_actions,
-                                              cyclical_transition_probs)
+cyclical_transition_kernel = TransitionKernel(
+    cyclical_states, cyclical_actions,
+    cyclical_transition_probs)
 
 # reward distributions for (state, action, next_state) triples
 # set samples for empirical approximation

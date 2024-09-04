@@ -48,6 +48,7 @@ class State:
 
     state: int
     name: str
+    is_terminal: bool = False
 
     def __int__(self) -> int:
         """Return state."""
@@ -69,7 +70,7 @@ class Policy:
     """Random policy."""
 
     def __init__(
-        self, states: List[State], actions: List[Action],
+        self, states: Sequence[State], actions: Sequence[Action],
         probs: Dict[State, np.ndarray]
     ):
         """Initialize policy.
@@ -80,8 +81,8 @@ class Policy:
             probs: Mapping of state, distribution pairs. Each distribution is a numpy array.
                 each entry in the numpy array corresponds to the probability of the action at the same index.
         """
-        self.states: List[State] = states
-        self.actions: List[Action] = actions
+        self.states: Sequence[State] = states
+        self.actions: np.ndarray = np.array(actions)  # 1-d
         self.probs: Dict[State, np.ndarray] = probs
 
     def __getitem__(self, state: State) -> np.ndarray:
@@ -90,8 +91,9 @@ class Policy:
             "action - distr mismatch."
         return self.probs[state]
 
-    def sample_action(self, state: int) -> int:
-        assert self.probs[state].size == len(self.actions), "action - distr mismatch."
+    def sample_action(self, state: State) -> int:
+        assert self.probs[state].size == len(self.actions), \
+            "action - distr mismatch."
         action = np.random.choice(self.actions, p=self.probs[state])
         return action
 
@@ -102,24 +104,24 @@ class TransitionKernel:
     # TODO: needs work, transiton kernel should yield probs (x, a) -> x'
     def __init__(
         self,
-        states: Mapping[str, int],
-        actions: Sequence,
-        probs: Dict[Tuple[int, int], np.ndarray],
+        states: Sequence[State],
+        actions: Sequence[Action],
+        probs: Dict[Tuple[State, Action], np.ndarray],
     ):
         """Initialize transition kernel."""
-        for state in states.values():
+        for state in states:
             for action in actions:
                 assert probs[(state, action)].size == len(
                     states
                 ), "state - distr mismatch."
 
-        self.states: Mapping[str, int] = states
-        self.actions: Sequence[int] = actions
-        self.state_action_probs: Dict[Tuple[int, int], np.ndarray] = (
+        self.states: Sequence[State] = states
+        self.actions: Sequence[Action] = actions
+        self.state_action_probs: Dict[Tuple[State, Action], np.ndarray] = (
             probs  # indexing with state id and action id
         )
 
-    def __getitem__(self, key: Tuple[int, int]) -> np.ndarray:
+    def __getitem__(self, key: Tuple[State, Action]) -> np.ndarray:
         """Return distribution over actions for given state, action pair."""
         return self.state_action_probs[key]
 
@@ -188,15 +190,15 @@ class RewardDistributionCollection:
 
     def __init__(
         self,
-            state_action_pairs: List[Tuple[int, int, int]],  # (s,a,s')
+            state_action_pairs: List[Tuple[State, Action, State]],  # (s,a,s')
             distributions: List[RV],
     ) -> None:
         """Initialize return distribution."""
-        self.rewards: Dict[Tuple[int, int, int], RV] = {
+        self.rewards: Dict[Tuple[State, Action, State], RV] = {
             s: d for s, d in zip(state_action_pairs, distributions)
         }
 
-    def __getitem__(self, key: Tuple[int, int, int]) -> RV:
+    def __getitem__(self, key: Tuple[State, Action, State]) -> RV:
         """Return RV_Discrete for (state, action, next_state) triple."""
         return self.rewards[key]
 
@@ -206,35 +208,35 @@ class MDP:
 
     def __init__(
         self,
-        states: Sequence,
-        actions: Sequence,
+        states: Sequence[State],
+        actions: Sequence[Action],
         rewards: RewardDistributionCollection,
         transition_probs: TransitionKernel,
-        terminal_states: Sequence[int] = [],
+        terminal_states: Sequence[State] = [],
         gamma: np.float64 = np.float64(0.5),
     ):
         """Initialize MDP."""
-        self.states: Dict = {i: s for i, s in enumerate(states)}
-        self.actions: Sequence = actions
+        self.states: np.ndarray = np.asarray(states)
+        self.actions: Sequence[Action] = actions
         self.rewards: RewardDistributionCollection = rewards
         self.trasition_probs: TransitionKernel = transition_probs
         self.current_policy: Optional[Policy] = None
-        self.terminal_states: Sequence[int] = terminal_states
+        self.terminal_states: Sequence[State] = terminal_states
         self.gamma: np.float64 = gamma
 
     def set_policy(self, policy: Policy) -> None:
         """Set policy."""
         self.current_policy = policy
 
-    def sample_next_state_reward(self, state: int, action: int) -> \
-            Tuple[int, float]:
+    def sample_next_state_reward(self, state: State, action: Action) -> \
+            Tuple[State, float]:
         """Sample next state and reward."""
-        if self.check_if_terminal(state):
-            return -1, 0.0
+        if state.is_terminal: return (TERMINAL_STATE, 0.0)
 
         next_state_probs: np.ndarray = self.trasition_probs[(state, action)]
-        next_state: int = np.random.choice(np.asarray([*self.states.keys()]),
-                                           p=next_state_probs)
+        next_state: State = np.random.choice(np.asarray(self.states), p=next_state_probs)
+        # next_state: int = np.random.choice(np.asarray([*self.states.keys()]),
+        #                                    p=next_state_probs)
         reward: float = self.rewards[(state, action, next_state)]()
         return next_state, reward
 
@@ -245,14 +247,12 @@ class MDP:
     def generate_random_policy(self) -> Policy:
         """Generate random policy which may be used in the given MDP."""
 
-        probs: Dict[int, np.ndarray] = {}
-        states: Dict[int, int] = {}
+        probs: Dict[State, np.ndarray] = {}
         for state in self.states:
-            states[state] = state
             ps: np.ndarray = np.random.random(len(self.actions))
             probs[state] = ps / np.sum(ps)
 
-        return Policy(states, self.actions, probs)
+        return Policy(self.states.tolist(), self.actions, probs)
 
 
 class Trajectory:
@@ -281,6 +281,13 @@ class Trajectory:
         return [t[-1] for t in self.history]
 
 
+TERMINAL_STATE: State = State(
+    state=-1,
+    name="TERMINAL",
+    is_terminal=True
+)
+
+
 ######################
 # Algorithm 5.1      #
 ######################
@@ -307,9 +314,9 @@ def categorical_dbo(
 
         for action in mdp.actions:
             # TODO possibly outsource this as function
-            for next_state in mdp.states.values():
+            for next_state in mdp.states:
                 prob = (
-                    pi[state][action] * mdp.trasition_probs[(state, action)][next_state]
+                    pi[state][int(action)] * mdp.trasition_probs[(state, action)][next_state]
                 )
                 if prob == 0:
                     continue
