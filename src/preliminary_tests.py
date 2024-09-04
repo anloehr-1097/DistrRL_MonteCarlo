@@ -6,6 +6,7 @@
 import random
 import time
 from typing import Callable, Dict, List, Mapping, Optional, Sequence, Tuple
+from dataclasses import dataclass
 
 
 import matplotlib.pyplot as plt
@@ -41,42 +42,23 @@ TERMINAL: int = -1
 # define random bellman operator as partial function
 
 
+@dataclass(frozen=True)
 class State:
-    """State representation."""
+    """State representation. Once created, immutable."""
 
-    def __init__(self, name_id: Tuple[str, int]) -> None:
-        """Initialize state."""
-        self.__name__ = name_id[0]
-        self.state: int = name_id[1]
-
-    def __str__(self) -> str:
-        """Return name of state."""
-        return self.__name__
-
-    def __repr__(self) -> str:
-        """Return name of state."""
-        return self.__name__
+    state: int
+    name: str
 
     def __int__(self) -> int:
         """Return state."""
         return self.state
 
 
+@dataclass(frozen=True)
 class Action:
-    """Action representation."""
-
-    def __init__(self, name_id: Tuple[str, int]) -> None:
-        """Initialize state."""
-        self.__name__ = name_id[0]
-        self.action: int = name_id[1]
-
-    def __str__(self) -> str:
-        """Return name of state."""
-        return self.__name__
-
-    def __repr__(self) -> str:
-        """Return name of state."""
-        return self.__name__
+    """Action representation. Once created immutable."""
+    action: int
+    name: str
 
     def __int__(self) -> int:
         """Return state."""
@@ -87,24 +69,26 @@ class Policy:
     """Random policy."""
 
     def __init__(
-        self, states: Mapping, actions: Sequence, probs: Dict[int, np.ndarray]
+        self, states: List[State], actions: List[Action],
+        probs: Dict[State, np.ndarray]
     ):
         """Initialize policy.
 
         Args:
-            states: Mapping of states
-            actions: Sequence of actions
+            states: List of States
+            actions: List of Actions
             probs: Mapping of state, distribution pairs. Each distribution is a numpy array.
                 each entry in the numpy array corresponds to the probability of the action at the same index.
         """
-        self.states: Mapping[str, int] = states
-        self.actions: Sequence = actions
-        self.probs: Dict[int, np.ndarray] = probs
+        self.states: List[State] = states
+        self.actions: List[Action] = actions
+        self.probs: Dict[State, np.ndarray] = probs
 
-    def __getitem__(self, key: int) -> np.ndarray:
+    def __getitem__(self, state: State) -> np.ndarray:
         """Return distribution over actions for given state."""
-        assert self.probs[key].size == len(self.actions), "action - distr mismatch."
-        return self.probs[key]
+        assert self.probs[state].size == len(self.actions), \
+            "action - distr mismatch."
+        return self.probs[state]
 
     def sample_action(self, state: int) -> int:
         assert self.probs[state].size == len(self.actions), "action - distr mismatch."
