@@ -14,12 +14,13 @@ from .distributions import emp_normal
 
 EMP_APPROX_SAMPLES = 500
 
+
 class SimulationEnv:
-    def __init__(
-        self, mdp: MDP, total_reward_distr_estimate: ReturnDistributionFunction
-    ):
+    def __init__(self, mdp: MDP,
+                 return_distr_fun_est: ReturnDistributionFunction):
+
         self.mdp = mdp
-        self.total_reward_distr_estimate = total_reward_distr_estimate
+        self.return_distr_fun_est = return_distr_fun_est
         return None
 
 
@@ -30,7 +31,7 @@ bernoulli_mdp: MDP = MDP(
     rewards=RewardDistributionCollection(
         [(0, 0, 0)], [RV(np.array([0.0, 1.0]), np.array([0.5, 0.5]))]
     ),
-    gamma=np.array([0.5]),
+    gamma=np.float64(0.5),
     transition_probs=TransitionKernel([0], [0], {(0, 0): np.array([1.0])}),
 )
 

@@ -41,6 +41,48 @@ TERMINAL: int = -1
 # define random bellman operator as partial function
 
 
+class State:
+    """State representation."""
+
+    def __init__(self, name_id: Tuple[str, int]) -> None:
+        """Initialize state."""
+        self.__name__ = name_id[0]
+        self.state: int = name_id[1]
+
+    def __str__(self) -> str:
+        """Return name of state."""
+        return self.__name__
+
+    def __repr__(self) -> str:
+        """Return name of state."""
+        return self.__name__
+
+    def __int__(self) -> int:
+        """Return state."""
+        return self.state
+
+
+class Action:
+    """Action representation."""
+
+    def __init__(self, name_id: Tuple[str, int]) -> None:
+        """Initialize state."""
+        self.__name__ = name_id[0]
+        self.action: int = name_id[1]
+
+    def __str__(self) -> str:
+        """Return name of state."""
+        return self.__name__
+
+    def __repr__(self) -> str:
+        """Return name of state."""
+        return self.__name__
+
+    def __int__(self) -> int:
+        """Return state."""
+        return self.action
+
+
 class Policy:
     """Random policy."""
 
@@ -55,7 +97,7 @@ class Policy:
             probs: Mapping of state, distribution pairs. Each distribution is a numpy array.
                 each entry in the numpy array corresponds to the probability of the action at the same index.
         """
-        self.states: Mapping = states
+        self.states: Mapping[str, int] = states
         self.actions: Sequence = actions
         self.probs: Dict[int, np.ndarray] = probs
 
@@ -76,21 +118,21 @@ class TransitionKernel:
     # TODO: needs work, transiton kernel should yield probs (x, a) -> x'
     def __init__(
         self,
-        states: Sequence,
+        states: Mapping[str, int],
         actions: Sequence,
         probs: Dict[Tuple[int, int], np.ndarray],
     ):
         """Initialize transition kernel."""
-        for state in states:
+        for state in states.values():
             for action in actions:
                 assert probs[(state, action)].size == len(
                     states
                 ), "state - distr mismatch."
 
-        self.states: Sequence[int] = states
+        self.states: Mapping[str, int] = states
         self.actions: Sequence[int] = actions
         self.state_action_probs: Dict[Tuple[int, int], np.ndarray] = (
-            probs  # indexing with state
+            probs  # indexing with state id and action id
         )
 
     def __getitem__(self, key: Tuple[int, int]) -> np.ndarray:
@@ -166,13 +208,13 @@ class RewardDistributionCollection:
             distributions: List[RV],
     ) -> None:
         """Initialize return distribution."""
-        self.returns: Dict[Tuple[int, int, int], RV] = {
+        self.rewards: Dict[Tuple[int, int, int], RV] = {
             s: d for s, d in zip(state_action_pairs, distributions)
         }
 
     def __getitem__(self, key: Tuple[int, int, int]) -> RV:
         """Return RV_Discrete for (state, action, next_state) triple."""
-        return self.returns[key]
+        return self.rewards[key]
 
 
 class MDP:
@@ -191,7 +233,6 @@ class MDP:
         self.states: Dict = {i: s for i, s in enumerate(states)}
         self.actions: Sequence = actions
         self.rewards: RewardDistributionCollection = rewards
-        # self.rewards: RV_Discrete = rewards
         self.trasition_probs: TransitionKernel = transition_probs
         self.current_policy: Optional[Policy] = None
         self.terminal_states: Sequence[int] = terminal_states
@@ -201,7 +242,8 @@ class MDP:
         """Set policy."""
         self.current_policy = policy
 
-    def sample_next_state_reward(self, state: int, action: int) -> Tuple[int, float]:
+    def sample_next_state_reward(self, state: int, action: int) -> \
+            Tuple[int, float]:
         """Sample next state and reward."""
         if self.check_if_terminal(state):
             return -1, 0.0
@@ -236,7 +278,8 @@ class Trajectory:
         """Initialize history."""
         self.history: List[Tuple[int, int, int, float]] = []
 
-    def write(self, state: int, action: int, next_state: int, reward: float) -> None:
+    def write(self, state: int, action: int, next_state: int, reward: float) -> \
+            None:
         """Write to history."""
         self.history.append((state, action, next_state, reward))
 
@@ -313,8 +356,6 @@ def categorical_dbo(
     return ret_cat_distr_coll
 
 
-
-
 ####################
 # Algorithm 5.3    #
 ####################
@@ -325,7 +366,6 @@ def categorical_dynamic_programming(mdp: MDP,
                                     -> ReturnDistributionFunction:
 
     """Categorical dynamic programming.
-
     Execute one step of the categorical dynamic programming algorithm.
 
     An implementation of Algorithm 5.3 from the DRL book.
@@ -357,9 +397,9 @@ def categorical_dynamic_programming(mdp: MDP,
     return dbo_result
 
 
-def assert_equidistant_particles(particles: np.ndarray) -> bool:
+def assert_equidistant_particles(particles: np.ndarray) -> np.bool_:
     """Assert that particles are equidistant."""
-    return np.all(np.diff(particles) == \
+    return np.all(np.diff(particles) ==
                   (particles[-1] - particles[0])/(particles.size - 1))
 
 
@@ -379,7 +419,8 @@ def categorical_projection(distr: Tuple[np.ndarray, np.ndarray],
 
     new_probs: np.ndarray = np.zeros(particles.size)
 
-    assert left_neigh_index.size == right_neigh_index.size, "Size mismatch in neighbors."
+    assert left_neigh_index.size == right_neigh_index.size, \
+        "Size mismatch in neighbors."
     # left_neigh: np.ndarray = particles[hypo_insert_pos - 1]
     # right_neigh: np.ndarray = particles[hypo_insert_pos]
     # determine weights to assign to neighbors
@@ -397,8 +438,10 @@ def categorical_projection(distr: Tuple[np.ndarray, np.ndarray],
 
         else:
             # assign mass to neighbors according to distance to neighbors
-            left_mass_i: np.float = 1 - np.abs(particles[left_neigh_index[i]] - distr[0][i])
-            right_mass_i: np.float = 1 - left_mass_i
+            left_mass_i: np.float64 = \
+                1 - np.abs(particles[left_neigh_index[i]] - distr[0][i])
+
+            right_mass_i: np.float64 = 1 - left_mass_i
             new_probs[left_neigh_index[i]] += left_mass_i * distr[1][i]
             new_probs[right_neigh_index[i]] += right_mass_i * distr[1][i]
 
@@ -408,13 +451,13 @@ def categorical_projection(distr: Tuple[np.ndarray, np.ndarray],
     return (particles, new_probs)
 
 
-
 ####################
 # Algorithm 5.4    #
 ####################
-def quantile_dynamic_programming(mdp: MDP, pi: Policy,
-                                 cat_distr_col: ReturnDistributionFunction,
-                                 no_of_quantiles: int) -> ReturnDistributionFunction:
+def quantile_dynamic_programming(
+    mdp: MDP, pi: Policy,
+    cat_distr_col: ReturnDistributionFunction,
+        no_of_quantiles: int) -> ReturnDistributionFunction:
     r"""Quantile dynamic programming.
 
     Execute one step of the quantile dynamic programming algorithm.
@@ -784,12 +827,11 @@ def main():
     approx_distr_mc: Dict[int, RV] = monte_carlo_eval(
         mdp, policy, 10)
 
-
     return None
     # res = cyclical_env.total_reward_distr_estimate
     # for i in range(1000):
-        # print(f"Iteration {i}")
-        # res = quantile_dynamic_programming(mdp, mdp.current_policy, res, 100)
+    # print(f"Iteration {i}")
+    # res = quantile_dynamic_programming(mdp, mdp.current_policy, res, 100)
     # return res
 
 
