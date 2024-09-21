@@ -1,5 +1,6 @@
 """Preliminary tests for master thesis."""
 
+from __future__ import annotations
 # import numpy as np
 
 
@@ -33,6 +34,8 @@ REWARDS: Mapping = {
 DEBUG = True
 MAX_EPOCHS: int = 1000
 TERMINAL: int = -1
+NUMBA_SUPPORT: bool = True
+
 # need some initial collection of distrs for the total reward =: nu^0
 # need some return distributons
 # need samples from return distr for each triple (s, a, s') (N * |S| * |A| * |S|) many)
@@ -48,6 +51,7 @@ class State:
 
     state: int
     name: str
+    index: int
     is_terminal: bool = False
 
     def __int__(self) -> int:
@@ -60,6 +64,7 @@ class Action:
     """Action representation. Once created immutable."""
     action: int
     name: str
+    index: int
 
     def __int__(self) -> int:
         """Return state."""
@@ -83,17 +88,17 @@ class Policy:
         """
         self.states: Sequence[State] = states
         self.actions: np.ndarray = np.array(actions)  # 1-d
+        for state in states:
+            assert probs[state].size == len(actions), \
+                "action - distr mismatch len mismatch.\
+                    Check if every state is a distribution over actions."
         self.probs: Dict[State, np.ndarray] = probs
 
     def __getitem__(self, state: State) -> np.ndarray:
         """Return distribution over actions for given state."""
-        assert self.probs[state].size == len(self.actions), \
-            "action - distr mismatch."
         return self.probs[state]
 
     def sample_action(self, state: State) -> int:
-        assert self.probs[state].size == len(self.actions), \
-            "action - distr mismatch."
         action = np.random.choice(self.actions, p=self.probs[state])
         return action
 
@@ -106,7 +111,7 @@ class TransitionKernel:
         self,
         states: Sequence[State],
         actions: Sequence[Action],
-        probs: Dict[Tuple[State, Action], np.ndarray],
+        probs: Dict[Tuple[State, Action], np.ndarray],  # ensure same order as states
     ):
         """Initialize transition kernel."""
         for state in states:
@@ -117,13 +122,17 @@ class TransitionKernel:
 
         self.states: Sequence[State] = states
         self.actions: Sequence[Action] = actions
-        self.state_action_probs: Dict[Tuple[State, Action], np.ndarray] = (
-            probs  # indexing with state id and action id
-        )
+        self.state_action_probs: Dict[Tuple[State, Action], np.ndarray] = probs
 
     def __getitem__(self, key: Tuple[State, Action]) -> np.ndarray:
         """Return distribution over actions for given state, action pair."""
         return self.state_action_probs[key]
+
+
+class GeneralRV:
+    # implement wrapper for scipy RV
+    # TODO which methods have to be supported?
+    pass
 
 
 class RV:
@@ -141,8 +150,7 @@ class RV:
         return self.xk, self.pk
 
     def get_cdf(self) -> Tuple[np.ndarray, np.ndarray]:
-        # self._sort()
-        self._sort_njit()
+        self._sort_njit() if NUMBA_SUPPORT else self._sort()
         return self.xk, np.cumsum(self.pk)
 
     def _sort(self):
@@ -168,14 +176,15 @@ class ReturnDistributionFunction:
 
     # TODO instead of using tuple directly, use RV_Discrete
 
-    def __init__(self, states: Sequence[int], distributions: List[RV]) -> None:
+    def __init__(self, states: Sequence[State],
+                 distributions: Sequence[RV]) -> None:
         """Initialize collection of categorical distributions."""
-        self.states: Sequence = states
+        self.states: Sequence[State] = states
         self.distr: Dict = {s: distributions[i] for i, s in enumerate(states)}
 
-    def __getitem__(self, key: int) -> RV:
+    def __getitem__(self, state: State) -> RV:
         """Return distribution for state."""
-        return self.distr[key]
+        return self.distr[state]
 
     def __len__(self) -> int:
         return len(self.states)
@@ -187,6 +196,7 @@ class ReturnDistributionFunction:
 
 class RewardDistributionCollection:
     """Return Distribution with finite support."""
+    # TODO generalize to arbitrary support
 
     def __init__(
         self,
@@ -194,6 +204,8 @@ class RewardDistributionCollection:
             distributions: List[RV],
     ) -> None:
         """Initialize return distribution."""
+        assert len(state_action_pairs) == len(distributions), \
+            "Mismatch in number of triples and and number of distributions."
         self.rewards: Dict[Tuple[State, Action, State], RV] = {
             s: d for s, d in zip(state_action_pairs, distributions)
         }
@@ -212,16 +224,14 @@ class MDP:
         actions: Sequence[Action],
         rewards: RewardDistributionCollection,
         transition_probs: TransitionKernel,
-        terminal_states: Sequence[State] = [],
         gamma: np.float64 = np.float64(0.5),
     ):
         """Initialize MDP."""
-        self.states: np.ndarray = np.asarray(states)
+        self.states: Sequence[State] = states
         self.actions: Sequence[Action] = actions
         self.rewards: RewardDistributionCollection = rewards
-        self.trasition_probs: TransitionKernel = transition_probs
+        self.transition_probs: TransitionKernel = transition_probs
         self.current_policy: Optional[Policy] = None
-        self.terminal_states: Sequence[State] = terminal_states
         self.gamma: np.float64 = gamma
 
     def set_policy(self, policy: Policy) -> None:
@@ -232,17 +242,14 @@ class MDP:
             Tuple[State, float]:
         """Sample next state and reward."""
         if state.is_terminal: return (TERMINAL_STATE, 0.0)
-
         next_state_probs: np.ndarray = self.trasition_probs[(state, action)]
         next_state: State = np.random.choice(np.asarray(self.states), p=next_state_probs)
-        # next_state: int = np.random.choice(np.asarray([*self.states.keys()]),
-        #                                    p=next_state_probs)
         reward: float = self.rewards[(state, action, next_state)]()
         return next_state, reward
 
-    def check_if_terminal(self, state: int) -> bool:
+    def check_if_terminal(self, state: State) -> bool:
         """Check if state is terminal."""
-        return state in self.terminal_states
+        return state.is_terminal
 
     def generate_random_policy(self) -> Policy:
         """Generate random policy which may be used in the given MDP."""
@@ -252,17 +259,17 @@ class MDP:
             ps: np.ndarray = np.random.random(len(self.actions))
             probs[state] = ps / np.sum(ps)
 
-        return Policy(self.states.tolist(), self.actions, probs)
+        return Policy(self.states, self.actions, probs)
 
 
 class Trajectory:
-    """History is list of tuples (state, action, next_state, reward)."""
+    """Trajectory is list of tuples (state, action, next_state, reward)."""
 
     def __init__(self) -> None:
         """Initialize history."""
-        self.history: List[Tuple[int, int, int, float]] = []
+        self.history: List[Tuple[State, Action, State, float]] = []
 
-    def write(self, state: int, action: int, next_state: int, reward: float) -> \
+    def write(self, state: State, action: Action, next_state: State, reward: float) -> \
             None:
         """Write to history."""
         self.history.append((state, action, next_state, reward))
@@ -284,8 +291,43 @@ class Trajectory:
 TERMINAL_STATE: State = State(
     state=-1,
     name="TERMINAL",
-    is_terminal=True
+    is_terminal=True,
+    index=-1
 )
+
+
+def dbo(mdp: MDP, ret_distr_function: ReturnDistributionFunction) -> None:
+    """Single step DDP."""
+    if mdp.current_policy is None:
+        raise ValueError("No policy set for MDP.")
+
+    eta_next = dict()
+    for state, distr in ret_distr_function.distr.items():
+        new_vals: List = []
+        new_probs: List = []
+
+        for action in mdp.actions:
+            for next_state in mdp.states:
+                transition_prob = mdp.transition_probs[(state, action)][next_state.index]
+                prob = mdp.current_policy[state][action.index] * transition_prob
+                reward_distr = mdp.rewards[(state, action, next_state)]
+                if next_state.is_terminal:
+                    new_vals.append(reward_distr.xk)
+                    new_probs.append(reward_distr.pk * prob)
+                else:
+                    distr_update = conv_jit(
+                        scale(ret_distr_function[next_state], mdp.gamma).distr(),
+                        reward_distr.distr()
+                    )
+                    new_vals.append(distr_update[0])
+                    new_probs.append(distr_update[1] * prob)
+
+        eta_next[state] = aggregate_conv_results(
+            RV(np.concatenate(new_vals), np.concatenate(new_probs))
+        )
+
+    for state, distr in eta_next.items():
+        ret_distr_function[state] = distr
 
 
 ######################
@@ -592,17 +634,14 @@ def conv_jit(
 
 
 @njit
-def aggregate_conv_results(
-    distr: Tuple[np.ndarray, np.ndarray]
-) -> Tuple[np.ndarray, np.ndarray]:
+def aggregate_conv_results(rv: RV, accuracy: float=1e-10) -> RV:
     """Aggregate results of convolution.
-
     Sum up probabilities of same values.
     """
 
-    val_sorted_indices: np.ndarray = np.argsort(distr[0])  # n log n
-    val_sorted: np.ndarray = distr[0][val_sorted_indices]
-    probs_sorted: np.ndarray = distr[1][val_sorted_indices]
+    val_sorted_indices: np.ndarray = np.argsort(rv.xk)  # n log n
+    val_sorted: np.ndarray = rv.xk[val_sorted_indices]
+    probs_sorted: np.ndarray = rv.pk[val_sorted_indices]
 
     ret_dist_v: List = []
     ret_dist_p: List = []
@@ -611,22 +650,15 @@ def aggregate_conv_results(
     ret_dist_v.append(val_sorted[current])
     ret_dist_p.append(probs_sorted[current])
 
-    for i in range(1, distr[0].size):
-        if np.abs(val_sorted[i] - val_sorted[i - 1]) < 1e-10:
+    for i in range(1, rv.xk[0].size):
+        if np.abs(val_sorted[i] - val_sorted[i - 1]) < accuracy:
             probs_sorted[current] += probs_sorted[i]
         else:
             ret_dist_v.append(val_sorted[i])
             ret_dist_p.append(probs_sorted[i])
             current = i
 
-    # values: np.ndarray = np.unique(distr[0])
-    # probs: np.ndarray = np.zeros(values.size)
-
-    # for i, val in enumerate(values):
-    # probs[i] = np.sum(distr[1][distr[0] == val])
-    # return values, probs
-
-    return np.asarray(ret_dist_v), np.asarray(ret_dist_p)
+    return RV(np.asarray(ret_dist_v), np.asarray(ret_dist_p))
 
 
 def apply_projection(func: Callable) -> Callable:
