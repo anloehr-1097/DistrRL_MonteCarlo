@@ -296,6 +296,9 @@ TERMINAL_STATE: State = State(
 )
 
 
+####################
+# Algorithm 5.1    #
+####################
 def dbo(mdp: MDP, ret_distr_function: ReturnDistributionFunction) -> None:
     """Single step DDP."""
     if mdp.current_policy is None:
@@ -330,68 +333,17 @@ def dbo(mdp: MDP, ret_distr_function: ReturnDistributionFunction) -> None:
         ret_distr_function[state] = distr
 
 
-######################
-# Algorithm 5.1      #
-######################
-def categorical_dbo(
-    mdp: MDP, pi: Policy, cat_distr_col: ReturnDistributionFunction
-) -> ReturnDistributionFunction:
-    """Run Algorithm 5.1 categorical distributional bellman operator from book.
+def random_projection(rv: RV, num_samples: int) -> RV:
+    return rv
 
-    Simple implementation of Algorithm 5.1 from the book without
-    performance optimizations.
 
-    Prerequisites:
-        finite state space
-        finite action space
-        rewards with finite support
-
-        ensure that all states in collection are states in the mdp
-    """
-    ret_distr: List[RV] = []
-
-    for state in cat_distr_col.states:
-        new_vals: List = []
-        new_probs: List = []
-
-        for action in mdp.actions:
-            # TODO possibly outsource this as function
-            for next_state in mdp.states:
-                prob = (
-                    pi[state][int(action)] * mdp.trasition_probs[(state, action)][next_state]
-                )
-                if prob == 0:
-                    continue
-                reward_distr = mdp.rewards[(state, action, next_state)]
-
-                # if terminal state, no future rewards, only immediate
-                if next_state in mdp.terminal_states:
-                    new_vals.append(reward_distr.xk)
-                    new_probs.append(reward_distr.pk * prob)
-
-                else:
-                    distr_update: Tuple[np.ndarray, np.ndarray] = conv_jit(
-                        scale(cat_distr_col[next_state], mdp.gamma).distr(),
-                        reward_distr.distr(),
-                    )
-                    new_vals.append(distr_update[0])
-                    new_probs.append(distr_update[1] * prob)
-
-        # ready to update \theta(x), store in list
-        ret_distr.append(
-            RV(np.concatenate(new_vals), np.concatenate(new_probs))
-        )
-
-    # final collection of distributions along all states
-    ret_cat_distr_coll: ReturnDistributionFunction = ReturnDistributionFunction(
-        states=cat_distr_col.states, distributions=ret_distr
-    )
-    return ret_cat_distr_coll
-
+def categorical_projection(rv: RV) -> RV:
+    return rv
 
 ####################
 # Algorithm 5.3    #
 ####################
+# TODO this is not used anymore but some pieces might be used
 def categorical_dynamic_programming(mdp: MDP,
                                     pi: Policy,
                                     cat_distr_col: ReturnDistributionFunction,
@@ -436,11 +388,12 @@ def assert_equidistant_particles(particles: np.ndarray) -> np.bool_:
                   (particles[-1] - particles[0])/(particles.size - 1))
 
 
-def categorical_projection(distr: Tuple[np.ndarray, np.ndarray],
+def categorical_projection(rv: RV,
                            particles: np.ndarray)\
                            -> Tuple[np.ndarray, np.ndarray]:
     """Apply categorical projection as described in book to a distribution."""
 
+    distr = rv.distr()
     # sort array
     hypo_insert_pos: np.ndarray = np.searchsorted(particles, distr[0])
     if DEBUG:
@@ -499,7 +452,7 @@ def quantile_dynamic_programming(
     This algorithm applies the quantile projection after computing the convolution.
     For a fixed number of particles m, the algorithm projects an arbitrary distribution
     d onto a distribution with m atoms with equal probability. The i-th location / atom
-    \\theta_i is obtained by calculating F^{-1}(2*i - 1 / 2m) where F is the cdf of d.
+    \\theta_i is obtained by calculating F^{-1}(2*i - 1 / 2m) where F^{-1} is the QF of d.
     """
     # get the initial quantile projection of cat_distr_col before any dbo application
     for idx, state in enumerate(cat_distr_col.states):
@@ -541,36 +494,33 @@ def filter_and_aggregate(vals: np.ndarray, probs: np.ndarray) \
 
 
 # TODO: possible enable @njit
-def quantile_projection(distr: Tuple[np.ndarray, np.ndarray],
-                        no_of_bins: int) -> Tuple[np.ndarray, np.ndarray]:
-    """Apply quantile projection as described in book to a distributoin."""
-    vals: np.ndarray = distr[0]
-    probs: np.ndarray = distr[1]
+@njit
+def quantile_projection(rv: RV,
+                        no_quantiles: int) -> RV:
+    """Apply quantile projection as described in book to a distribution.
 
-    # sort array
-    idx_sort: np.ndarray = np.argsort(vals)
-    vals = vals[idx_sort]
-    probs = probs[idx_sort]
+    Assume that atoms in distribution are sorted in ascending order.
+    Assume that unique values in RV distribution, i.e. equal values are aggregated.
+    """
 
-    quantiles: np.ndarray = np.cumsum(np.ones(no_of_bins) / no_of_bins)
-    assert np.isclose(quantiles[-1], 1), "Quantiles do not sum to 1."
-    # make sure no duplicate values
-    vals, probs = filter_and_aggregate(vals=vals, probs=probs)
-    assert_probs_distr(probs)
+    vals: np.ndarray = rv.xk
+    probs: np.ndarray = rv.pk
+
+    if probs.size < no_quantiles: return rv
 
     # aggregate probs
     cum_probs: np.ndarray = np.cumsum(probs)
-
-    # case not quantile projection possible
-    if cum_probs.size < no_of_bins:
-        return vals, probs
-
-    # determine indices for quantiles
-    quantile_locs: np.ndarray = np.searchsorted(cum_probs, quantiles)
-    quantile_locs = np.clip(quantile_locs, 0, len(vals) - 1)
-
+    locs: np.ndarray = (2 * (np.arange(1, no_quantiles + 1)) - 1) / (2 * no_quantiles)
+    quantiles_at_locs: np.ndarray = np.searchsorted(locs, cum_probs) + 1  # TODO double check this
+    values_at_quantiles: np.ndarray = vals[quantiles_at_locs]
+    # quantiles: np.ndarray = np.cumsum(np.ones(no_quantiles) / no_quantiles)
+    # assert np.isclose(quantiles[-1], 1), "Quantiles do not sum to 1."
+    # # determine indices for quantiles
+    # quantile_locs: np.ndarray = np.searchsorted(cum_probs, quantiles)
+    # quantile_locs = np.clip(quantile_locs, 0, len(vals) - 1)
     # return quantile_locs, (np.ones(no_of_bins) / no_of_bins)
-    return vals[quantile_locs], (np.ones(no_of_bins) / no_of_bins)
+    # return vals[quantile_locs], (np.ones(no_of_bins) / no_of_bins)
+    return RV(values_at_quantiles, np.ones(no_quantiles) / no_quantiles)
 
 
 def scale(distr: RV, gamma: np.float64) -> RV:
@@ -579,16 +529,13 @@ def scale(distr: RV, gamma: np.float64) -> RV:
     return distr
 
 
-def conv(
-    a: Tuple[np.ndarray, np.ndarray], b: Tuple[np.ndarray, np.ndarray]
-) -> Tuple[np.ndarray, np.ndarray]:
+def conv(a: RV, b: RV) -> RV:
     """Convolution of two distributions.
-
     0th entry values, 1st entry probabilities.
     """
-    new_val: np.ndarray = np.add(a[0], b[0][:, None]).flatten()
-    probs: np.ndarray = np.multiply(a[1], b[1][:, None]).flatten()
-    return new_val, probs
+    new_val: np.ndarray = np.add(a.xk, b.xk[:, None]).flatten()
+    probs: np.ndarray = np.multiply(a.pk, b.pk[:, None]).flatten()
+    return RV(new_val, probs)
 
 
 def time_it(debug: bool) -> Callable:
@@ -621,16 +568,14 @@ def time_it(debug: bool) -> Callable:
 
 
 @njit
-def conv_jit(
-    a: Tuple[np.ndarray, np.ndarray], b: Tuple[np.ndarray, np.ndarray]
-) -> Tuple[np.ndarray, np.ndarray]:
+def conv_njit(a: RV, b: RV) -> RV:
     """Convolution of two distributions.
 
     Numba JIT compiled version.
     """
-    new_val: np.ndarray = np.add(a[0], b[0][:, None]).flatten()
-    probs: np.ndarray = np.multiply(a[1], b[1][:, None]).flatten()
-    return new_val, probs
+    new_val: np.ndarray = np.add(a.xk, b.xk[:, None]).flatten()
+    probs: np.ndarray = np.multiply(a.pk, b.pk[:, None]).flatten()
+    return RV(new_val, probs)
 
 
 @njit
