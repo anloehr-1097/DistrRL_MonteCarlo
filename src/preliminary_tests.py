@@ -200,14 +200,14 @@ class RewardDistributionCollection:
 
     def __init__(
         self,
-            state_action_pairs: List[Tuple[State, Action, State]],  # (s,a,s')
+            state_action_state_triples: List[Tuple[State, Action, State]],  # (s,a,s')
             distributions: List[RV],
     ) -> None:
         """Initialize return distribution."""
-        assert len(state_action_pairs) == len(distributions), \
+        assert len(state_action_state_triples) == len(distributions), \
             "Mismatch in number of triples and and number of distributions."
         self.rewards: Dict[Tuple[State, Action, State], RV] = {
-            s: d for s, d in zip(state_action_pairs, distributions)
+            s: d for s, d in zip(state_action_state_triples, distributions)
         }
 
     def __getitem__(self, key: Tuple[State, Action, State]) -> RV:
@@ -318,16 +318,19 @@ def dbo(mdp: MDP, ret_distr_function: ReturnDistributionFunction) -> None:
                     new_vals.append(reward_distr.xk)
                     new_probs.append(reward_distr.pk * prob)
                 else:
-                    distr_update = conv_jit(
+                    distr_update = conv_njit(
                         scale(ret_distr_function[next_state], mdp.gamma).distr(),
                         reward_distr.distr()
                     )
+                    # scale(ret_distr_function[next_state], mdp.gamma),
+                    # reward_distr)
                     new_vals.append(distr_update[0])
                     new_probs.append(distr_update[1] * prob)
 
         eta_next[state] = aggregate_conv_results(
-            RV(np.concatenate(new_vals), np.concatenate(new_probs))
+            (np.concatenate(new_vals), np.concatenate(new_probs))
         )
+        eta_next[state] = RV(*eta_next[state])
 
     for state, distr in eta_next.items():
         ret_distr_function[state] = distr
@@ -568,25 +571,28 @@ def time_it(debug: bool) -> Callable:
 
 
 @njit
-def conv_njit(a: RV, b: RV) -> RV:
+def conv_njit(
+        a: Tuple[np.ndarray, np.ndarray],
+        b: Tuple[np.ndarray, np.ndarray]) \
+        -> Tuple[np.ndarray, np.ndarray]:
     """Convolution of two distributions.
 
     Numba JIT compiled version.
     """
-    new_val: np.ndarray = np.add(a.xk, b.xk[:, None]).flatten()
-    probs: np.ndarray = np.multiply(a.pk, b.pk[:, None]).flatten()
-    return RV(new_val, probs)
+    new_val: np.ndarray = np.add(a[0], b[0][:, None]).flatten()
+    probs: np.ndarray = np.multiply(a[1], b[1][:, None]).flatten()
+    return new_val, probs
 
 
 @njit
-def aggregate_conv_results(rv: RV, accuracy: float=1e-10) -> RV:
+def aggregate_conv_results(distr: Tuple[np.ndarray, np.ndarray], accuracy: float=1e-10) -> Tuple[np.ndarray, np.ndarray]:
     """Aggregate results of convolution.
     Sum up probabilities of same values.
     """
 
-    val_sorted_indices: np.ndarray = np.argsort(rv.xk)  # n log n
-    val_sorted: np.ndarray = rv.xk[val_sorted_indices]
-    probs_sorted: np.ndarray = rv.pk[val_sorted_indices]
+    val_sorted_indices: np.ndarray = np.argsort(distr[0])  # n log n
+    val_sorted: np.ndarray = distr[0][val_sorted_indices]
+    probs_sorted: np.ndarray = distr[1][val_sorted_indices]
 
     ret_dist_v: List = []
     ret_dist_p: List = []
@@ -595,7 +601,7 @@ def aggregate_conv_results(rv: RV, accuracy: float=1e-10) -> RV:
     ret_dist_v.append(val_sorted[current])
     ret_dist_p.append(probs_sorted[current])
 
-    for i in range(1, rv.xk[0].size):
+    for i in range(1, distr[0].size):
         if np.abs(val_sorted[i] - val_sorted[i - 1]) < accuracy:
             probs_sorted[current] += probs_sorted[i]
         else:
@@ -603,7 +609,8 @@ def aggregate_conv_results(rv: RV, accuracy: float=1e-10) -> RV:
             ret_dist_p.append(probs_sorted[i])
             current = i
 
-    return RV(np.asarray(ret_dist_v), np.asarray(ret_dist_p))
+    # return RV(np.asarray(ret_dist_v), np.asarray(ret_dist_p))
+    return np.asarray(ret_dist_v), np.asarray(ret_dist_p)
 
 
 def apply_projection(func: Callable) -> Callable:
@@ -694,7 +701,7 @@ def simulate_one_step(
     proj_func: Callable,
 ) -> Tuple[np.ndarray, np.ndarray]:
 
-    g_t: Tuple[np.ndarray, np.ndarray] = aggregate_conv_results(conv_jit(dist1, dist2))
+    g_t: Tuple[np.ndarray, np.ndarray] = aggregate_conv_results(RV(conv_njit(dist1, dist2)[0], conv_njit(dist1, dist2)[1]))
     g_t = proj_func(
         values=g_t[0], probs=g_t[1], no_of_bins=(time_step + 1) * 10, state=1
     )
