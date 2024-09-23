@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import random
 import time
-from typing import Callable, Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 from dataclasses import dataclass
 
 
@@ -182,9 +182,13 @@ class ReturnDistributionFunction:
         self.states: Sequence[State] = states
         self.distr: Dict = {s: distributions[i] for i, s in enumerate(states)}
 
-    def __getitem__(self, state: State) -> RV:
+    def __getitem__(self, state: Union[State, int]) -> RV:
         """Return distribution for state."""
-        return self.distr[state]
+        if isinstance(state, int):
+            target_state = list(filter(lambda s: s.index == state, self.states))[0]
+            return self.distr[target_state]
+        else:
+            return self.distr[state]
 
     def __len__(self) -> int:
         return len(self.states)
@@ -313,6 +317,8 @@ def dbo(mdp: MDP, ret_distr_function: ReturnDistributionFunction) -> None:
             for next_state in mdp.states:
                 transition_prob = mdp.transition_probs[(state, action)][next_state.index]
                 prob = mdp.current_policy[state][action.index] * transition_prob
+                if prob == 0:
+                    continue
                 reward_distr = mdp.rewards[(state, action, next_state)]
                 if next_state.is_terminal:
                     new_vals.append(reward_distr.xk)

@@ -17,7 +17,7 @@ from .preliminary_tests import (
 )
 from .distributions import emp_normal
 
-EMP_APPROX_SAMPLES = 500
+EMP_APPROX_SAMPLES = 10
 
 
 class SimulationEnv:
