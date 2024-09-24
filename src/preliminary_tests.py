@@ -1,9 +1,17 @@
-"""Preliminary tests for master thesis."""
+"""Preliminary tests for master thesis.
+
+
+
+TODO: replace every indexing scheme with numerical indexing just based on the pointer of the element
+      inkeeping with that, hold probs as a 2d array with rows summing to one, which might make code faster, check that
+"""
+
 
 from __future__ import annotations
 # import numpy as np
 
 
+import logging
 import random
 import time
 from typing import Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Union
@@ -22,17 +30,10 @@ from .utils import assert_probs_distr
 # Actions: Dict[int, Tuple[List[int], List[float]]] holding possible actions, probablity pairs for each state
 
 
-STATES: Mapping = {1: 1, 2: 2, 3: 3}  # states, potentially more complex this mapping
-ACTIONS: Mapping = {1: ([2], [1.0]), 2: ([3], [1.0]), 3: ([1], [1.0])}
-REWARDS: Mapping = {
-    (1, 2): ([-3, 1], [0.5, 0.5]),
-    (2, 3): ([5, 2], [0.5, 0.5]),
-    (3, 1): ([0, 0.5], [0.5, 0.5]),
-}
-
-
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 DEBUG = True
-MAX_EPOCHS: int = 1000
+MAX_TRAJ_LEN: int = 1000
 TERMINAL: int = -1
 NUMBA_SUPPORT: bool = True
 
@@ -86,21 +87,30 @@ class Policy:
             probs: Mapping of state, distribution pairs. Each distribution is a numpy array.
                 each entry in the numpy array corresponds to the probability of the action at the same index.
         """
-        self.states: Sequence[State] = states
-        self.actions: np.ndarray = np.array(actions)  # 1-d
         for state in states:
             assert probs[state].size == len(actions), \
                 "action - distr mismatch len mismatch.\
                     Check if every state is a distribution over actions."
+        self.states: Sequence[State] = states
+        self.actions: Sequence[Action] = actions
+        self.action_indices: np.ndarray = np.asarray(
+            [action.index for action in self.actions]
+        )
+
+        #self.actions: np.ndarray[Action] = np.asarray([actions.index for action in actions])  # 1-d
         self.probs: Dict[State, np.ndarray] = probs
 
     def __getitem__(self, state: State) -> np.ndarray:
         """Return distribution over actions for given state."""
         return self.probs[state]
 
-    def sample_action(self, state: State) -> int:
-        action = np.random.choice(self.actions, p=self.probs[state])
-        return action
+    def sample_action(self, state: State) -> Action:
+        # action indices MUST align with order of probs
+        action_index: int = np.random.choice(
+            self.action_indices,
+            p=self.probs[state]
+        )
+        return self.actions[action_index]
 
 
 class TransitionKernel:
@@ -177,10 +187,13 @@ class ReturnDistributionFunction:
     # TODO instead of using tuple directly, use RV_Discrete
 
     def __init__(self, states: Sequence[State],
-                 distributions: Sequence[RV]) -> None:
+                 distributions: Optional[Sequence[RV]]) -> None:
         """Initialize collection of categorical distributions."""
         self.states: Sequence[State] = states
-        self.distr: Dict = {s: distributions[i] for i, s in enumerate(states)}
+        if distributions:
+            self.distr: Dict = {s: distributions[i] for i, s in enumerate(states)}
+        else:
+            self.distr: Dict = {s: None for s in states}
 
     def __getitem__(self, state: Union[State, int]) -> RV:
         """Return distribution for state."""
@@ -246,7 +259,7 @@ class MDP:
             Tuple[State, float]:
         """Sample next state and reward."""
         if state.is_terminal: return (TERMINAL_STATE, 0.0)
-        next_state_probs: np.ndarray = self.trasition_probs[(state, action)]
+        next_state_probs: np.ndarray = self.transition_probs[(state, action)]
         next_state: State = np.random.choice(np.asarray(self.states), p=next_state_probs)
         reward: float = self.rewards[(state, action, next_state)]()
         return next_state, reward
@@ -714,88 +727,85 @@ def simulate_one_step(
     return g_t
 
 
-def monte_carlo_eval(mdp: MDP, policy: Policy, num_trajectories: int=20,
-                     num_epochs: int=-1) -> Dict[int, RV]:
+def monte_carlo_eval(mdp: MDP, num_trajectories: int=20,
+                     trajectory_len: int=-1) -> ReturnDistributionFunction:
     """Monte Carlo Simulation with fixed policy.
 
     Run num_trajectories many simulations for each state with each trajectory
     running for num_epochs.
 
-    Return the return distributions for each state obtained in this way.
+    Return the return distribution function estimate.
     """
     # create Dict[state, est_return_distr]
-    est_return_distr: Dict[int, RV] = {}
-    traj_res_arary: Dict[int, List] = {i: [] for i in mdp.states.keys()}
-    trajectories: Dict[int, Trajectory]
+    est_return_distr_fun: ReturnDistributionFunction = ReturnDistributionFunction(mdp.states, None)
+    traj_res_arary: Dict[State, List] = {i: [] for i in mdp.states}
+    trajectories: Dict[State, Trajectory]
+
     for traj_no in range(num_trajectories):
         trajectories = \
-            monte_carlo_trajectories(mdp, policy, num_epochs)
-        for state in mdp.states.keys():
+            monte_carlo_trajectories(mdp, trajectory_len)
+        for state in mdp.states:
             traj_res_arary[state].append(
                 trajectories[state].aggregate_returns(mdp.gamma)
             )
 
-    for state in mdp.states.keys():
+    for state in mdp.states:
         # create distribution from trajectory results
-        est_return_distr[state] = RV(
+        est_return_distr_fun.distr[state] = RV(
             np.asarray(traj_res_arary[state]),
             np.ones(num_trajectories) / num_trajectories)
-    return est_return_distr
+    return est_return_distr_fun
 
 
-def monte_carlo_trajectories(mdp: MDP, policy: Policy, num_epochs: int=-1) -> \
-        Dict[int, Trajectory]:
+def monte_carlo_trajectories(mdp: MDP, trajectory_len: int=-1) -> \
+        Dict[State, Trajectory]:
     """Monte Carlo Simulation with fixed policy.
 
-    Given mdp, policy, num epochs, return sample trajectory for each state.
-    Single trajectory runs for num_epochs if num_epochs > 0.
-    Else runs until MAX_EPOCHS is reached.
+    Given mdp, policy, num epochs, return one sample trajectory for each state.
+    Single trajectory runs for trajectory_len if trajectory_len > 0.
+    Else runs until MAX_TRAJ_LEN is reached.
     """
-    mdp.set_policy(policy)
-    trajectories: Dict[int, Trajectory] = {}
-
-    for state in mdp.states.keys():
+    assert mdp.current_policy, "No policy set for MDP."
+    trajectories: Dict[State, Trajectory] = {}
+    for state in mdp.states:
         if DEBUG:
             print(f"Monte Carlo evaluation for state: {state}")
         trajectory: Trajectory = monte_carlo_eval_single_trajectory(
-            mdp, state, policy, num_epochs)
+            mdp, state, trajectory_len)
         trajectories[state] = trajectory
     return trajectories
 
 
-def monte_carlo_eval_single_trajectory(mdp: MDP, state: int, policy: Policy,
-                                   num_epochs: int=-1) -> Trajectory:
+def monte_carlo_eval_single_trajectory(
+        mdp: MDP, state: State, trajectory_length: int=-1) -> Trajectory:
     """Monte Carlo Simulation with a fixed policy and initial state."""
-    mdp.set_policy(policy)
     trajectory: Trajectory = Trajectory()
-
-    epoch: int = 0
+    tlen: int = 0
     while True:
         if DEBUG:
-            print(f"Epoch: {epoch+1}")
+            print(f"Epoch: {tlen+1}")
         state = one_step_monte_carlo(mdp, state, trajectory)
-        epoch += 1
-        if ((num_epochs != -1) and (epoch >= num_epochs)) \
-           or (epoch > MAX_EPOCHS):
+        tlen += 1
+        if ((trajectory_length != -1) and (tlen >= trajectory_length)) \
+           or (tlen > MAX_TRAJ_LEN):
             break
-
     return trajectory
 
 
-def one_step_monte_carlo(mdp: MDP, state: int, trajectory: Trajectory) -> int:
+def one_step_monte_carlo(mdp: MDP, state: State, trajectory: Trajectory) -> State:
     """One step of Monte Carlo Simulation.
 
-    TODO:
-    Return action, next state and reward, write to history
+    Run one monte carlo step, write to trajectory history & return next state.
     """
-    next_state: int
+    next_state: State
     reward: float
-    policy: Policy = mdp.current_policy if mdp.current_policy is not None \
-        else mdp.generate_random_policy()
-    action: int = policy.sample_action(state)
+    if not mdp.current_policy:
+        logger.info("No policy set for MDP. Setting random policy.")
+        mdp.generate_random_policy()
+    assert mdp.current_policy, "No policy set for MDP."
+    action: Action = mdp.current_policy.sample_action(state)
     next_state, reward = mdp.sample_next_state_reward(state, action)
     trajectory.write(state, action, next_state, reward)
-
     return next_state
 
 
