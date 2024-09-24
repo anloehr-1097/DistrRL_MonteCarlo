@@ -139,14 +139,21 @@ class TransitionKernel:
         return self.state_action_probs[key]
 
 
-class GeneralRV:
-    # implement wrapper for scipy RV
-    # TODO which methods have to be supported?
+class ContinuousRV:
+    pass
+
+
+class DiscreteRV:
     pass
 
 
 class RV:
-    """Discrete atomic random variable."""
+    """Discrete atomic random variable. 
+
+    It is vital that the RV is not modified from outside but only with
+    the provided methods.
+    This is to ensure that the distribution's atoms are sorted when is_sorted is True.
+    """
 
     def __init__(self, xk, pk) -> None:
         """Initialize discrete random variable."""
@@ -154,6 +161,7 @@ class RV:
             "Not numpy arrays upon creation of RV_Discrete."
         self.xk: np.ndarray = xk
         self.pk: np.ndarray = pk
+        self.is_sorted: bool = False
 
     def distr(self):
         """Return distribution as Tuple of numpy arrays."""
@@ -168,17 +176,35 @@ class RV:
         indices = np.argsort(self.xk)
         self.xk = self.xk[indices]
         self.pk = self.pk[indices]
+        self.is_sorted = True
 
     def _sort_njit(self):
         self.xk, self.pk = _sort_njit(self.xk, self.pk)
+        self.is_sorted = True
 
-    def sample(self) -> float:
-        """Sample from distribution."""
-        return np.random.choice(self.xk, p=self.pk)
+    def sample(self, num_samples: int=1) -> float:
+        """Sample from distribution.
+
+        So far only allow 1D sampling.
+        """
+        return np.random.choice(self.xk, p=self.pk, size=num_samples)
 
     def __call__(self) -> float:
         """Sample from distribution."""
         return self.sample()
+
+    def cdf(self, x: float) -> float:
+        """Evaluate CDF."""
+
+        if not self.is_sorted:
+            self._sort_njit() if NUMBA_SUPPORT else self._sort()
+        return np.sum(self.pk[self.xk <= x])
+
+    def qf(self, u: float) -> float:
+        """Evaluate quantile function."""
+        if not self.is_sorted:
+            self._sort_njit() if NUMBA_SUPPORT else self._sort()
+        return self.xk[np.searchsorted(self.pk, u) + 1]
 
 
 class ReturnDistributionFunction:
@@ -313,11 +339,50 @@ TERMINAL_STATE: State = State(
 )
 
 
-####################
-# Algorithm 5.1    #
-####################
-def dbo(mdp: MDP, ret_distr_function: ReturnDistributionFunction) -> None:
-    """Single step DDP."""
+
+class Projection:
+    """Projection operator."""
+    
+    def __init__(self):
+        self.parameterset: Optional = None
+        self.projection: Optional[Callable[RV, RV]] = None
+
+        return None
+
+    def __call__(self, rv: RV, *args, **kwargs) -> RV:
+        """Apply projection to distribution."""
+        return self.projection(rv, *args, **kwargs)
+
+    pass
+
+
+class ParameterAlgorithm:
+    pass
+
+
+class ParameterSet:
+    pass
+
+
+@dataclass
+class ProjParamTuple(Tuple):
+    projection: Projection
+    parameter_set: ParameterSet
+
+
+###################################
+# Algorithm 5.1  - classical DBO  #
+###################################
+def dbo(mdp: MDP, ret_distr_function: ReturnDistributionFunction,
+        reward_distr: Optional[RewardDistributionCollection]) -> None:
+    """Single application of the DBO.
+
+    If rewards_distr is None, then use the rewards from the MDP.
+    This corresponds to the original DBO. If rewards_distr is given, then
+    use the given reward distribution. This corresponds to the extended DBO.
+    """
+
+    reward_distr = reward_distr if reward_distr else mdp.rewards
     if mdp.current_policy is None:
         raise ValueError("No policy set for MDP.")
 
@@ -332,7 +397,7 @@ def dbo(mdp: MDP, ret_distr_function: ReturnDistributionFunction) -> None:
                 prob = mdp.current_policy[state][action.index] * transition_prob
                 if prob == 0:
                     continue
-                reward_distr = mdp.rewards[(state, action, next_state)]
+                reward_distr = reward_distr[(state, action, next_state)]
                 if next_state.is_terminal:
                     new_vals.append(reward_distr.xk)
                     new_probs.append(reward_distr.pk * prob)
@@ -355,8 +420,62 @@ def dbo(mdp: MDP, ret_distr_function: ReturnDistributionFunction) -> None:
         ret_distr_function[state] = distr
 
 
+def ddp(mdp: MDP, inner_projection_pair: ProjParamTuple,
+        outer_projection_pair: ProjParamTuple,
+        param_algorithm: Callable,
+        return_distr_function: ReturnDistributionFunction,
+        iteration_num: int) -> None:
+    """Step of Distributional dynamic programming in iteration iteration_num.
+
+    Carry out one step of distributional dynamic programming.
+    """
+
+    # apply inner projection
+    inner_params, outerparams = param_algorithm(return_distr_function, iteration_num)
+    outer_params = None  # figure this out
+    inner_projection = inner_projection_pair.projection
+    inner_param_set = inner_projection_pair.parameter_set
+    rewards_distr = inner_projection(mdp.rewards, inner_params)
+    # apply step of dbo
+    dbo(mdp, return_distr_function, rewards_distr)
+    # apply outer projection
+    outer_projection = outer_projection_pair.projection
+    outper_param_set = outer_projection_pair.parameter_set
+    outer_projection(return_distr_function, outer_params)
+    return None
+
+
+def algo_size_fun(
+    previous_estimate: Optional[ReturnDistributionFunction],
+    inner_size_fun: Callable[int, int],
+    outer_size_fun: Callable[int, int],
+        iteration_num: int) -> Tuple[int, int]:
+    """Apply size functions to num_iteration.
+
+    Provide any 2 size functions from |N -> |N
+    """
+    return (inner_size_fun(iteration_num), outer_size_fun(iteration_num))
+
+
+class RandomProjection(Projection):
+    """Random Projection"""
+
+    def __init__(self, num_samples: int) -> None:
+        """Initialize random projection."""
+        self.num_samples: int = num_samples
+
+    def __call__(self, rv: RV) -> RV:
+        """Apply random projection."""
+        return random_projection(rv, self.num_samples)
+
+
 def random_projection(rv: RV, num_samples: int) -> RV:
-    return rv
+    """Random projection of distribution."""
+
+    atoms = rv.sample(num_samples)
+    weights = np.ones(num_samples) / num_samples
+    return RV(atoms, weights)
+
 
 
 def categorical_projection(rv: RV) -> RV:
@@ -524,7 +643,6 @@ def quantile_projection(rv: RV,
     Assume that atoms in distribution are sorted in ascending order.
     Assume that unique values in RV distribution, i.e. equal values are aggregated.
     """
-
     vals: np.ndarray = rv.xk
     probs: np.ndarray = rv.pk
 
@@ -547,8 +665,9 @@ def quantile_projection(rv: RV,
 
 def scale(distr: RV, gamma: np.float64) -> RV:
     """Scale distribution by factor."""
-    distr.xk *= gamma
-    return distr
+    new_val = distr.xk * gamma
+    new_prob = distr.pk
+    return RV(new_val, new_prob)
 
 
 def conv(a: RV, b: RV) -> RV:
