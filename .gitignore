@@ -9,3 +9,4 @@ src/__pycache__/*
 .mypy_cache/*
 .#*
 *sync-conflict*
+*.ipynb
