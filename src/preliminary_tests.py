@@ -159,6 +159,7 @@ class RV:
         """Initialize discrete random variable."""
         assert isinstance(xk, np.ndarray) and isinstance(pk, np.ndarray), \
             "Not numpy arrays upon creation of RV_Discrete."
+        assert xk.size == pk.size, "Size mismatch in xk and pk."
         self.xk: np.ndarray = xk
         self.pk: np.ndarray = pk
         self.is_sorted: bool = False
@@ -202,9 +203,13 @@ class RV:
 
     def qf(self, u: float) -> float:
         """Evaluate quantile function."""
-        if not self.is_sorted:
-            self._sort_njit() if NUMBA_SUPPORT else self._sort()
-        return self.xk[np.searchsorted(self.pk, u) + 1]
+        if np.isclose(u, 1): return self.xk[-1]
+        elif np.isclose(u, 0): return self.xk[0]
+        else:
+            if not self.is_sorted:
+                self._sort_njit() if NUMBA_SUPPORT else self._sort()
+            return self.xk[(np.searchsorted(np.cumsum(self.pk), u))]
+            # TODO this does not work due to numerical isntability
 
 
 class ReturnDistributionFunction:

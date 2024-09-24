@@ -1,2 +1,3 @@
 import unittest 
-import tests
+# import tests
+import test_random_variable
