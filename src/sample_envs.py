@@ -17,7 +17,7 @@ from .preliminary_tests import (
 )
 from .distributions import emp_normal
 
-EMP_APPROX_SAMPLES = 10
+EMP_APPROX_SAMPLES = 100
 
 
 class SimulationEnv:
@@ -143,7 +143,8 @@ cyclical_mdp: MDP = MDP(
     states=cyclical_states,
     actions=cyclical_actions,
     rewards=cyclical_rewards,
-    transition_probs=cyclical_transition_probs
+    transition_probs=cyclical_transition_probs,
+    gamma=np.float64(0.7)
     )
 cyclical_mdp.set_policy(cyclical_pi)
 
