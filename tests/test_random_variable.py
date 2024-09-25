@@ -58,3 +58,14 @@ class TestFiniteRV(unittest.TestCase):
             np.isclose(qf_eval_single, expected_single),
             f"Quantile function evaluation failed.\nExpected:\
             {expected, expected_single}\nGot: {qf_eval, qf_eval_single}")
+
+    def test_creation_duplicates(self):
+        xk = np.array([1,2,3,3,3,4,5])
+        pk = np.ones(xk.size)
+        pk = pk / pk.sum()
+        rv = RV(xk, pk)
+        self.assertTrue(np.unique(rv.xk).size == rv.xk.size)
+
+
+
+

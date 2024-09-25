@@ -184,14 +184,14 @@ class RV:
         self.xk, self.pk = _sort_njit(self.xk, self.pk)
         self.is_sorted = True
 
-    def sample(self, num_samples: int=1) -> np.float:
+    def sample(self, num_samples: int=1) -> np.ndarray:
         """Sample from distribution.
 
         So far only allow 1D sampling.
         """
         return np.random.choice(self.xk, p=self.pk, size=num_samples)
 
-    def __call__(self) -> float:
+    def __call__(self) -> np.ndarray:
         """Sample from distribution."""
         return self.sample()
 
@@ -303,7 +303,7 @@ class MDP:
         if state.is_terminal: return (TERMINAL_STATE, 0.0)
         next_state_probs: np.ndarray = self.transition_probs[(state, action)]
         next_state: State = np.random.choice(np.asarray(self.states), p=next_state_probs)
-        reward: float = self.rewards[(state, action, next_state)]()
+        reward: float = self.rewards[(state, action, next_state)]()[0]  # __call__ -> np.ndarray, thus pick first element
         return next_state, reward
 
     def check_if_terminal(self, state: State) -> bool:
@@ -390,7 +390,7 @@ class ProjParamTuple(Tuple):
 # Algorithm 5.1  - classical DBO  #
 ###################################
 def dbo(mdp: MDP, ret_distr_function: ReturnDistributionFunction,
-        reward_distr: Optional[RewardDistributionCollection]) -> None:
+        reward_distr_coll: Optional[RewardDistributionCollection]=None) -> None:
     """Single application of the DBO.
 
     If rewards_distr is None, then use the rewards from the MDP.
@@ -398,7 +398,7 @@ def dbo(mdp: MDP, ret_distr_function: ReturnDistributionFunction,
     use the given reward distribution. This corresponds to the extended DBO.
     """
 
-    reward_distr = reward_distr if reward_distr else mdp.rewards
+    reward_distr_coll = reward_distr_coll if reward_distr_coll else mdp.rewards
     if mdp.current_policy is None:
         raise ValueError("No policy set for MDP.")
 
@@ -413,7 +413,7 @@ def dbo(mdp: MDP, ret_distr_function: ReturnDistributionFunction,
                 prob = mdp.current_policy[state][action.index] * transition_prob
                 if prob == 0:
                     continue
-                reward_distr = reward_distr[(state, action, next_state)]
+                reward_distr = reward_distr_coll[(state, action, next_state)]
                 if next_state.is_terminal:
                     new_vals.append(reward_distr.xk)
                     new_probs.append(reward_distr.pk * prob)
