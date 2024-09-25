@@ -1,11 +1,8 @@
 """Preliminary tests for master thesis.
 
-
-
 TODO: replace every indexing scheme with numerical indexing just based on the pointer of the element
       inkeeping with that, hold probs as a 2d array with rows summing to one, which might make code faster, check that
 """
-
 
 from __future__ import annotations
 # import numpy as np
@@ -17,7 +14,7 @@ import time
 from typing import Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 from dataclasses import dataclass
 
-
+import pdb
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as sp
@@ -219,10 +216,11 @@ class RV:
         if isinstance(u, float):
             return self.qf_single(u)
 
-        if NUMBA_SUPPORT:
-            return _qf_njit(self.xk, self.pk, u)
+        # if NUMBA_SUPPORT:
+        #     return _qf_njit(self.xk, self.pk, u)  # u: np.ndarray
         else:
             return np.vectorize(self.qf)(u)
+        pdb.set_trace()
 
 
 class ReturnDistributionFunction:

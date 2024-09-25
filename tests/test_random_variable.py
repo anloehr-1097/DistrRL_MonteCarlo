@@ -4,6 +4,7 @@ import numpy as np
 import unittest
 from src.preliminary_tests import RV
 import logging
+import pdb
 
 DEBUG: bool = True
 
@@ -43,6 +44,7 @@ class TestFiniteRV(unittest.TestCase):
     def test_qf(self):
         qs = np.array([0.0, 0.35, 0.8, 1.0])
         qf_eval = self.rv.qf(qs)
+
         qs_single = 0.172
         qf_eval_single = self.rv.qf(qs_single)
 
