@@ -1,12 +1,11 @@
 """Tests for the random variable abstractions."""
 
 import numpy as np
-from typing import Tuple
 import unittest
 from src.preliminary_tests import RV
 import logging
 
-DEBUG: bool = True 
+DEBUG: bool = True
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -28,15 +27,32 @@ class TestFiniteRV(unittest.TestCase):
             np.isclose(cdf_eval, 0.3),
             f"CDF evaluation failed.\nExpected: 0.3\nGot: {cdf_eval}")
 
-    def test_qf(self):
-        qf_eval_0 = self.rv.qf(0)
-        qf_eval_1 = self.rv.qf(0.35)
-        qf_eval_2 = self.rv.qf(0.8)
-        qf_eval_3 = self.rv.qf(1.0)
+    def test_qf_single(self):
+        qf_eval_0 = self.rv.qf_single(0)
+        qf_eval_1 = self.rv.qf_single(0.35)
+        qf_eval_2 = self.rv.qf_single(0.8)
+        qf_eval_3 = self.rv.qf_single(1.0)
         qf_eval = np.array([qf_eval_0, qf_eval_1, qf_eval_2, qf_eval_3])
         if DEBUG: logger.info(f"Quantile function evaluation: {qf_eval}")
-        expected = np.array([1, 4, 8, 10])
-        
+        expected = np.array([-np.inf, 4, 8, 10])
         self.assertTrue(
             np.isclose(qf_eval, expected).all(),
-            f"Quantile function evaluation failed.\nExpected: {expected}\nGot: {qf_eval}")
+            f"Quantile function evaluation failed.\nExpected:\
+            {expected}\nGot: {qf_eval}")
+
+    def test_qf(self):
+        qs = np.array([0.0, 0.35, 0.8, 1.0])
+        qf_eval = self.rv.qf(qs)
+        qs_single = 0.172
+        qf_eval_single = self.rv.qf(qs_single)
+
+        if DEBUG: logger.info(
+            f"Quantile function evaluations: {qf_eval, qf_eval_single}"
+        )
+        expected = np.array([-np.inf, 4, 8, 10])
+        expected_single = 2
+        self.assertTrue(
+            np.isclose(qf_eval, expected).all() &
+            np.isclose(qf_eval_single, expected_single),
+            f"Quantile function evaluation failed.\nExpected:\
+            {expected, expected_single}\nGot: {qf_eval, qf_eval_single}")

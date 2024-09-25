@@ -23,7 +23,7 @@ import numpy as np
 import scipy.stats as sp
 from numba import njit, jit
 
-from .nb_fun import _sort_njit
+from .nb_fun import _sort_njit, _qf_njit
 from .utils import assert_probs_distr
 
 # States: Dict[int, AnyType] holding possibly holding state representation as vector
@@ -36,6 +36,7 @@ DEBUG = True
 MAX_TRAJ_LEN: int = 1000
 TERMINAL: int = -1
 NUMBA_SUPPORT: bool = True
+NUM_PRECISION_DECIMALS: int = 20
 
 # need some initial collection of distrs for the total reward =: nu^0
 # need some return distributons
@@ -160,11 +161,14 @@ class RV:
         assert isinstance(xk, np.ndarray) and isinstance(pk, np.ndarray), \
             "Not numpy arrays upon creation of RV_Discrete."
         assert xk.size == pk.size, "Size mismatch in xk and pk."
-        self.xk: np.ndarray = xk
-        self.pk: np.ndarray = pk
-        self.is_sorted: bool = False
 
-    def distr(self):
+        self.xk: np.ndarray
+        self.pk: np.ndarray
+        self.xk, self.pk = aggregate_conv_results((xk, pk))  # make sure xk has unique values
+        self.is_sorted: bool = False
+        self.size = self.xk.size
+
+    def distr(self) -> Tuple[np.ndarray, np.ndarray]:
         """Return distribution as Tuple of numpy arrays."""
         return self.xk, self.pk
 
@@ -172,18 +176,18 @@ class RV:
         self._sort_njit() if NUMBA_SUPPORT else self._sort()
         return self.xk, np.cumsum(self.pk)
 
-    def _sort(self):
+    def _sort(self) -> None:
         """Sort values and probs."""
         indices = np.argsort(self.xk)
         self.xk = self.xk[indices]
         self.pk = self.pk[indices]
         self.is_sorted = True
 
-    def _sort_njit(self):
+    def _sort_njit(self) -> None:
         self.xk, self.pk = _sort_njit(self.xk, self.pk)
         self.is_sorted = True
 
-    def sample(self, num_samples: int=1) -> float:
+    def sample(self, num_samples: int=1) -> np.float:
         """Sample from distribution.
 
         So far only allow 1D sampling.
@@ -201,15 +205,24 @@ class RV:
             self._sort_njit() if NUMBA_SUPPORT else self._sort()
         return np.sum(self.pk[self.xk <= x])
 
-    def qf(self, u: float) -> float:
+    def qf_single(self, u: float) -> float:
         """Evaluate quantile function."""
         if np.isclose(u, 1): return self.xk[-1]
-        elif np.isclose(u, 0): return self.xk[0]
+        elif np.isclose(u, 0): return -np.inf
         else:
             if not self.is_sorted:
                 self._sort_njit() if NUMBA_SUPPORT else self._sort()
-            return self.xk[(np.searchsorted(np.cumsum(self.pk), u))]
-            # TODO this does not work due to numerical isntability
+            return self.xk[(np.searchsorted(np.round(np.cumsum(self.pk), NUM_PRECISION_DECIMALS), u))]
+
+    def qf(self, u: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
+        """Evaluate QF vectorized."""
+        if isinstance(u, float):
+            return self.qf_single(u)
+
+        if NUMBA_SUPPORT:
+            return _qf_njit(self.xk, self.pk, u)
+        else:
+            return np.vectorize(self.qf)(u)
 
 
 class ReturnDistributionFunction:
@@ -482,6 +495,29 @@ def random_projection(rv: RV, num_samples: int) -> RV:
     return RV(atoms, weights)
 
 
+class QuantileProjection(Projection):
+    """Quantile projection."""
+
+    def __init__(self, num_quantiles: int) -> None:
+        """Initialize quantile projection."""
+        self.num_quantiles: int = num_quantiles
+
+    def __call__(self, rv: RV) -> RV:
+        """Apply quantile projection."""
+        return quantile_projection(rv, self.num_quantiles)
+
+
+# @njit
+def quantile_projection(rv: RV,
+                        no_quantiles: int) -> RV:
+    """Apply quantile projection as described in book to a distribution."""
+    if rv.size <= no_quantiles: return rv
+    quantile_locs: np.ndarray = (2 * (np.arange(1, no_quantiles + 1)) - 1) /\
+        (2 * no_quantiles)
+    quantiles_at_locs = rv.qf(quantile_locs)
+    return RV(quantiles_at_locs, np.ones(no_quantiles) / no_quantiles)
+
+
 
 def categorical_projection(rv: RV) -> RV:
     return rv
@@ -640,33 +676,33 @@ def filter_and_aggregate(vals: np.ndarray, probs: np.ndarray) \
 
 
 # TODO: possible enable @njit
-@njit
-def quantile_projection(rv: RV,
-                        no_quantiles: int) -> RV:
-    """Apply quantile projection as described in book to a distribution.
-
-    Assume that atoms in distribution are sorted in ascending order.
-    Assume that unique values in RV distribution, i.e. equal values are aggregated.
-    """
-    vals: np.ndarray = rv.xk
-    probs: np.ndarray = rv.pk
-
-    if probs.size < no_quantiles: return rv
-
-    # aggregate probs
-    cum_probs: np.ndarray = np.cumsum(probs)
-    locs: np.ndarray = (2 * (np.arange(1, no_quantiles + 1)) - 1) / (2 * no_quantiles)
-    quantiles_at_locs: np.ndarray = np.searchsorted(locs, cum_probs) + 1  # TODO double check this
-    values_at_quantiles: np.ndarray = vals[quantiles_at_locs]
-    # quantiles: np.ndarray = np.cumsum(np.ones(no_quantiles) / no_quantiles)
-    # assert np.isclose(quantiles[-1], 1), "Quantiles do not sum to 1."
-    # # determine indices for quantiles
-    # quantile_locs: np.ndarray = np.searchsorted(cum_probs, quantiles)
-    # quantile_locs = np.clip(quantile_locs, 0, len(vals) - 1)
-    # return quantile_locs, (np.ones(no_of_bins) / no_of_bins)
-    # return vals[quantile_locs], (np.ones(no_of_bins) / no_of_bins)
-    return RV(values_at_quantiles, np.ones(no_quantiles) / no_quantiles)
-
+# @njit
+# def quantile_projection(rv: RV,
+#                         no_quantiles: int) -> RV:
+#     """Apply quantile projection as described in book to a distribution.
+#
+#     Assume that atoms in distribution are sorted in ascending order.
+#     Assume that unique values in RV distribution, i.e. equal values are aggregated.
+#     """
+#     vals: np.ndarray = rv.xk
+#     probs: np.ndarray = rv.pk
+#
+#     if probs.size < no_quantiles: return rv
+#
+#     # aggregate probs
+#     cum_probs: np.ndarray = np.cumsum(probs)
+#     locs: np.ndarray = (2 * (np.arange(1, no_quantiles + 1)) - 1) / (2 * no_quantiles)
+#     quantiles_at_locs: np.ndarray = np.searchsorted(locs, cum_probs) + 1  # TODO double check this
+#     values_at_quantiles: np.ndarray = vals[quantiles_at_locs]
+#     # quantiles: np.ndarray = np.cumsum(np.ones(no_quantiles) / no_quantiles)
+#     # assert np.isclose(quantiles[-1], 1), "Quantiles do not sum to 1."
+#     # # determine indices for quantiles
+#     # quantile_locs: np.ndarray = np.searchsorted(cum_probs, quantiles)
+#     # quantile_locs = np.clip(quantile_locs, 0, len(vals) - 1)
+#     # return quantile_locs, (np.ones(no_of_bins) / no_of_bins)
+#     # return vals[quantile_locs], (np.ones(no_of_bins) / no_of_bins)
+#     return RV(values_at_quantiles, np.ones(no_quantiles) / no_quantiles)
+#
 
 def scale(distr: RV, gamma: np.float64) -> RV:
     """Scale distribution by factor."""
@@ -752,7 +788,6 @@ def aggregate_conv_results(distr: Tuple[np.ndarray, np.ndarray], accuracy: float
             ret_dist_p.append(probs_sorted[i])
             current = i
 
-    # return RV(np.asarray(ret_dist_v), np.asarray(ret_dist_p))
     return np.asarray(ret_dist_v), np.asarray(ret_dist_p)
 
 
