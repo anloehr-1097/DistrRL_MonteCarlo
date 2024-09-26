@@ -774,17 +774,25 @@ def aggregate_conv_results(distr: Tuple[np.ndarray, np.ndarray], accuracy: float
     ret_dist_v: List = []
     ret_dist_p: List = []
     current: int = 0
-    i: int = 1
-    ret_dist_v.append(val_sorted[current])
-    ret_dist_p.append(probs_sorted[current])
+    # i: int = 1
+    # ret_dist_v.append(val_sorted[current])
+    # ret_dist_p.append(probs_sorted[current])
 
     for i in range(1, distr[0].size):
-        if np.abs(val_sorted[i] - val_sorted[i - 1]) < accuracy:
+        # if np.abs(val_sorted[i] - val_sorted[i - 1]) < accuracy:
+        if np.abs(val_sorted[i] - val_sorted[current]) < accuracy:
             probs_sorted[current] += probs_sorted[i]
         else:
-            ret_dist_v.append(val_sorted[i])
-            ret_dist_p.append(probs_sorted[i])
+            ret_dist_v.append(val_sorted[current])
+            ret_dist_p.append(probs_sorted[current])
             current = i
+
+            # ret_dist_v.append(val_sorted[i])
+            # ret_dist_p.append(probs_sorted[i])
+            # current = i
+
+    ret_dist_v.append(val_sorted[current])
+    ret_dist_p.append(probs_sorted[current])
 
     return np.asarray(ret_dist_v), np.asarray(ret_dist_p)
 

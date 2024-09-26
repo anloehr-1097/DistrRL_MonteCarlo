@@ -79,7 +79,7 @@ class TestAggregation(unittest.TestCase):
 
         if DEBUG: logger.info(f"Aggregated distribution: {xk_agg, pk_agg}")
         expected_xk = np.array([1, 2, 3, 4, 5, 5.1, 8, 9, 10])
-        expected_pk = np.array([0.1, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
+        expected_pk = np.array([0.1, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
         self.assertTrue(
             np.isclose(xk_agg, expected_xk).all() &
             np.isclose(pk_agg, expected_pk).all(),
