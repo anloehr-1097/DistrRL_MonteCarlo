@@ -2,7 +2,7 @@
 
 import numpy as np
 import unittest
-from src.preliminary_tests import RV
+from src.preliminary_tests import RV, aggregate_conv_results
 import logging
 import pdb
 
@@ -65,6 +65,30 @@ class TestFiniteRV(unittest.TestCase):
         pk = pk / pk.sum()
         rv = RV(xk, pk)
         self.assertTrue(np.unique(rv.xk).size == rv.xk.size)
+
+
+class TestAggregation(unittest.TestCase):
+    def setUp(self):
+        self.xk = np.array([1, 2, 2, 3, 4, 5, 5.1, 8, 9, 10])
+        self.pk = np.ones(self.xk.size)
+        self.pk = self.pk / self.pk.sum()
+        self.rv = RV(self.xk, self.pk)
+
+    def test_aggregation(self):
+        xk_agg, pk_agg = aggregate_conv_results(self.rv.distr())
+
+        if DEBUG: logger.info(f"Aggregated distribution: {xk_agg, pk_agg}")
+        expected_xk = np.array([1, 2, 3, 4, 5, 5.1, 8, 9, 10])
+        expected_pk = np.array([0.1, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
+        self.assertTrue(
+            np.isclose(xk_agg, expected_xk).all() &
+            np.isclose(pk_agg, expected_pk).all(),
+            f"Aggregation failed.\nExpected: {expected_xk, expected_pk}\nGot:\
+            {xk_agg, pk_agg}"
+        )
+
+
+
 
 
 

@@ -19,7 +19,6 @@ from .distributions import emp_normal
 
 EMP_APPROX_SAMPLES = 100
 
-
 class SimulationEnv:
     def __init__(self, mdp: MDP,
                  return_distr_fun_est: ReturnDistributionFunction):

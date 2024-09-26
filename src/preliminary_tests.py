@@ -298,12 +298,12 @@ class MDP:
         self.current_policy = policy
 
     def sample_next_state_reward(self, state: State, action: Action) -> \
-            Tuple[State, float]:
+            Tuple[State, np.float64]:
         """Sample next state and reward."""
-        if state.is_terminal: return (TERMINAL_STATE, 0.0)
+        if state.is_terminal: return (TERMINAL_STATE, np.float64(0.0))
         next_state_probs: np.ndarray = self.transition_probs[(state, action)]
         next_state: State = np.random.choice(np.asarray(self.states), p=next_state_probs)
-        reward: float = self.rewards[(state, action, next_state)]()[0]  # __call__ -> np.ndarray, thus pick first element
+        reward: np.float64 = self.rewards[(state, action, next_state)]()[0]  # __call__ -> np.ndarray, thus pick first element
         return next_state, reward
 
     def check_if_terminal(self, state: State) -> bool:
@@ -326,9 +326,9 @@ class Trajectory:
 
     def __init__(self) -> None:
         """Initialize history."""
-        self.history: List[Tuple[State, Action, State, float]] = []
+        self.history: List[Tuple[State, Action, State, np.float64]] = []
 
-    def write(self, state: State, action: Action, next_state: State, reward: float) -> \
+    def write(self, state: State, action: Action, next_state: State, reward: np.float64) -> \
             None:
         """Write to history."""
         self.history.append((state, action, next_state, reward))
@@ -342,7 +342,7 @@ class Trajectory:
         returns = returns * gamma_ar
         return np.sum(returns)
 
-    def _get_returns(self) -> List[float]:
+    def _get_returns(self) -> List[np.float64]:
         """Return list of returns."""
         return [t[-1] for t in self.history]
 
@@ -761,7 +761,7 @@ def conv_njit(
     return new_val, probs
 
 
-@njit
+# @njit
 def aggregate_conv_results(distr: Tuple[np.ndarray, np.ndarray], accuracy: float=1e-10) -> Tuple[np.ndarray, np.ndarray]:
     """Aggregate results of convolution.
     Sum up probabilities of same values.
@@ -955,10 +955,10 @@ def one_step_monte_carlo(mdp: MDP, state: State, trajectory: Trajectory) -> Stat
     Run one monte carlo step, write to trajectory history & return next state.
     """
     next_state: State
-    reward: float
-    if not mdp.current_policy:
-        logger.info("No policy set for MDP. Setting random policy.")
-        mdp.generate_random_policy()
+    reward: np.float64
+    # if not mdp.current_policy:
+    #     logger.info("No policy set for MDP. Setting random policy.")
+    #     mdp.generate_random_policy()
     assert mdp.current_policy, "No policy set for MDP."
     action: Action = mdp.current_policy.sample_action(state)
     next_state, reward = mdp.sample_next_state_reward(state, action)
@@ -971,17 +971,7 @@ def main():
     from .sample_envs import cyclical_env
     mdp = cyclical_env.mdp
     policy = mdp.generate_random_policy()
-
-    approx_distr_mc: Dict[int, RV] = monte_carlo_eval(
-        mdp, policy, 10)
-
     return None
-    # res = cyclical_env.total_reward_distr_estimate
-    # for i in range(1000):
-    # print(f"Iteration {i}")
-    # res = quantile_dynamic_programming(mdp, mdp.current_policy, res, 100)
-    # return res
-
 
 if __name__ == "__main__":
 
