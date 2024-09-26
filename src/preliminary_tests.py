@@ -222,7 +222,6 @@ class RV:
         #     return _qf_njit(self.xk, self.pk, u)  # u: np.ndarray
         else:
             return np.vectorize(self.qf)(u)
-        pdb.set_trace()
 
 
 class ReturnDistributionFunction:
