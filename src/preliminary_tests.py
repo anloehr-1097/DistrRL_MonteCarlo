@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 import random
 import time
-from typing import Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 from dataclasses import dataclass
 import itertools
 import functools
@@ -359,7 +359,7 @@ TERMINAL_STATE: State = State(
 
 @dataclass
 class ProjectionParameter:
-    pass
+    value: Union[int, np.float64, np.ndarray]
 
 
 class Projection:
@@ -367,6 +367,10 @@ class Projection:
 
     def __init__(self):
         self.projection: Optional[Callable[[RV, Optional[ProjectionParameter]], RV]] = None
+        return None
+
+    def set_params(self, params: ProjectionParameter) -> None:
+        """Set parameters for projection."""
         return None
 
     def __call__(self, rv: RV, *args, **kwargs) -> RV:
@@ -432,7 +436,7 @@ def dbo(mdp: MDP, ret_distr_function: ReturnDistributionFunction,
 
 def ddp(mdp: MDP, inner_projection: Projection,
         outer_projection: Projection,
-        param_algorithm: Callable,
+        param_algorithm: Callable[..., Tuple[ProjectionParameter, ProjectionParameter]],
         return_distr_function: ReturnDistributionFunction,
         iteration_num: int
         ) -> None:
@@ -445,12 +449,16 @@ def ddp(mdp: MDP, inner_projection: Projection,
     inner_params, outer_params = param_algorithm(
         iteration_num, previous_estimate=return_distr_function
     )
+    inner_projection.set_params(inner_params)
+    outer_projection.set_params(outer_params)
 
     rewards_distr_coll = RewardDistributionCollection(
         list(mdp.rewards.rewards.keys()),
-        [inner_projection(mdp.rewards[(s, a, s_bar)], inner_params) for
-            (s, a, s_bar) in
-            itertools.product(mdp.states, mdp.actions, mdp.states)]
+        [inner_projection(mdp.rewards[(s, a, s_bar)]) for
+         (s, a, s_bar) in
+         itertools.product(mdp.states, mdp.actions, mdp.states)
+         if mdp.transition_probs[(s, a)][s_bar.index] > 0
+         ]
     )
     # apply step of dbo
 
@@ -458,7 +466,7 @@ def ddp(mdp: MDP, inner_projection: Projection,
     # apply outer projection
     return_distr_function = ReturnDistributionFunction(
         return_distr_function.states,
-        [outer_projection(return_distr_function[s], outer_params) for
+        [outer_projection(return_distr_function[s]) for
             s in return_distr_function.states]
     )
     return None
@@ -466,10 +474,10 @@ def ddp(mdp: MDP, inner_projection: Projection,
 
 def algo_size_fun(
     iteration_num: int,
-    inner_size_fun: Callable[[int], int],
-    outer_size_fun: Callable[[int], int],
+    inner_size_fun: Callable[[int], ProjectionParameter],
+    outer_size_fun: Callable[[int], ProjectionParameter],
     previous_estimate: Optional[ReturnDistributionFunction]=None,
-        ) -> Tuple[int, int]:
+        ) -> Tuple[ProjectionParameter, ProjectionParameter]:
     """Apply size functions to num_iteration.
 
     Provide any 2 size functions from |N -> |N
@@ -477,7 +485,7 @@ def algo_size_fun(
     return (inner_size_fun(iteration_num), outer_size_fun(iteration_num))
 
 
-def poly_size_fun(x: int): return x**2
+def poly_size_fun(x: int): return ProjectionParameter(value=x**2)
 
 
 quant_projection_algo = functools.partial(
@@ -485,7 +493,6 @@ quant_projection_algo = functools.partial(
     outer_size_fun=poly_size_fun,
     previous_estimate=None
 )
-
 
 
 class RandomProjection(Projection):
@@ -515,6 +522,11 @@ class QuantileProjection(Projection):
         """Initialize quantile projection."""
         self.num_quantiles: int
         if num_quantiles: self.num_quantiles = num_quantiles
+
+    def set_params(self, params: ProjectionParameter) -> None:
+        assert isinstance(params.value, int), \
+            "Quantile Projection expects int parameter."
+        self.num_quantiles = params.value
 
     def __call__(self, rv: RV) -> RV:
         """Apply quantile projection."""
