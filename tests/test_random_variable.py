@@ -4,7 +4,6 @@ import numpy as np
 import unittest
 from src.preliminary_tests import RV, aggregate_conv_results
 import logging
-import pdb
 
 DEBUG: bool = True
 
