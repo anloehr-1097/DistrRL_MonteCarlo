@@ -465,10 +465,11 @@ def ddp(mdp: MDP, inner_projection: Projection,
 
 
 def algo_size_fun(
-    previous_estimate: Optional[ReturnDistributionFunction],
+    iteration_num: int,
     inner_size_fun: Callable[[int], int],
     outer_size_fun: Callable[[int], int],
-        iteration_num: int) -> Tuple[int, int]:
+    previous_estimate: Optional[ReturnDistributionFunction]=None,
+        ) -> Tuple[int, int]:
     """Apply size functions to num_iteration.
 
     Provide any 2 size functions from |N -> |N
@@ -484,6 +485,7 @@ quant_projection_algo = functools.partial(
     outer_size_fun=poly_size_fun,
     previous_estimate=None
 )
+
 
 
 class RandomProjection(Projection):
