@@ -443,7 +443,7 @@ def ddp(mdp: MDP, inner_projection: Projection,
 
     # apply inner projection
     inner_params, outer_params = param_algorithm(
-        return_distr_function, iteration_num
+        iteration_num, previous_estimate=return_distr_function
     )
 
     rewards_distr_coll = RewardDistributionCollection(
@@ -511,12 +511,14 @@ def random_projection(rv: RV, num_samples: int) -> RV:
 class QuantileProjection(Projection):
     """Quantile projection."""
 
-    def __init__(self, num_quantiles: int) -> None:
+    def __init__(self, num_quantiles: Optional[int]=None) -> None:
         """Initialize quantile projection."""
-        self.num_quantiles: int = num_quantiles
+        self.num_quantiles: int
+        if num_quantiles: self.num_quantiles = num_quantiles
 
     def __call__(self, rv: RV) -> RV:
         """Apply quantile projection."""
+        assert self.num_quantiles is not None, "Number of quantiles not set."
         return quantile_projection(rv, self.num_quantiles)
 
 
@@ -991,9 +993,11 @@ def one_step_monte_carlo(mdp: MDP, state: State, trajectory: Trajectory) -> Stat
 def main():
     """Call main function."""
     from .sample_envs import cyclical_env
-    mdp = cyclical_env.mdp
-    policy = mdp.generate_random_policy()
+    # mdp = cyclical_env.mdp
+    # policy = mdp.generate_random_policy()
+    ddp(cyclical_env.mdp, QuantileProjection(10), QuantileProjection(10), quant_projection_algo, cyclical_env.return_distr_fun_est, 1)
     return None
+
 
 if __name__ == "__main__":
 
