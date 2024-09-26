@@ -13,6 +13,8 @@ import random
 import time
 from typing import Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 from dataclasses import dataclass
+import itertools
+import functools
 
 import pdb
 import matplotlib.pyplot as plt
@@ -355,35 +357,27 @@ TERMINAL_STATE: State = State(
 )
 
 
+@dataclass
+class ProjectionParameter:
+    pass
+
 
 class Projection:
     """Projection operator."""
-    
-    def __init__(self):
-        self.parameterset: Optional = None
-        self.projection: Optional[Callable[RV, RV]] = None
 
+    def __init__(self):
+        self.projection: Optional[Callable[[RV, Optional[ProjectionParameter]], RV]] = None
         return None
 
     def __call__(self, rv: RV, *args, **kwargs) -> RV:
         """Apply projection to distribution."""
+        if not self.projection:
+            raise NotImplementedError("Projection not implemented")
         return self.projection(rv, *args, **kwargs)
-
-    pass
 
 
 class ParameterAlgorithm:
     pass
-
-
-class ParameterSet:
-    pass
-
-
-@dataclass
-class ProjParamTuple(Tuple):
-    projection: Projection
-    parameter_set: ParameterSet
 
 
 ###################################
@@ -436,41 +430,60 @@ def dbo(mdp: MDP, ret_distr_function: ReturnDistributionFunction,
         ret_distr_function[state] = distr
 
 
-def ddp(mdp: MDP, inner_projection_pair: ProjParamTuple,
-        outer_projection_pair: ProjParamTuple,
+def ddp(mdp: MDP, inner_projection: Projection,
+        outer_projection: Projection,
         param_algorithm: Callable,
         return_distr_function: ReturnDistributionFunction,
-        iteration_num: int) -> None:
+        iteration_num: int
+        ) -> None:
     """Step of Distributional dynamic programming in iteration iteration_num.
 
     Carry out one step of distributional dynamic programming.
     """
 
     # apply inner projection
-    inner_params, outerparams = param_algorithm(return_distr_function, iteration_num)
-    outer_params = None  # figure this out
-    inner_projection = inner_projection_pair.projection
-    inner_param_set = inner_projection_pair.parameter_set
-    rewards_distr = inner_projection(mdp.rewards, inner_params)
+    inner_params, outer_params = param_algorithm(
+        return_distr_function, iteration_num
+    )
+
+    rewards_distr_coll = RewardDistributionCollection(
+        list(mdp.rewards.rewards.keys()),
+        [inner_projection(mdp.rewards[(s, a, s_bar)], inner_params) for
+            (s, a, s_bar) in
+            itertools.product(mdp.states, mdp.actions, mdp.states)]
+    )
     # apply step of dbo
-    dbo(mdp, return_distr_function, rewards_distr)
+
+    dbo(mdp, return_distr_function, rewards_distr_coll)
     # apply outer projection
-    outer_projection = outer_projection_pair.projection
-    outper_param_set = outer_projection_pair.parameter_set
-    outer_projection(return_distr_function, outer_params)
+    return_distr_function = ReturnDistributionFunction(
+        return_distr_function.states,
+        [outer_projection(return_distr_function[s], outer_params) for
+            s in return_distr_function.states]
+    )
     return None
 
 
 def algo_size_fun(
     previous_estimate: Optional[ReturnDistributionFunction],
-    inner_size_fun: Callable[int, int],
-    outer_size_fun: Callable[int, int],
+    inner_size_fun: Callable[[int], int],
+    outer_size_fun: Callable[[int], int],
         iteration_num: int) -> Tuple[int, int]:
     """Apply size functions to num_iteration.
 
     Provide any 2 size functions from |N -> |N
     """
     return (inner_size_fun(iteration_num), outer_size_fun(iteration_num))
+
+
+def poly_size_fun(x: int): return x**2
+
+
+quant_projection_algo = functools.partial(
+    algo_size_fun, inner_size_fun=poly_size_fun,
+    outer_size_fun=poly_size_fun,
+    previous_estimate=None
+)
 
 
 class RandomProjection(Projection):
@@ -516,9 +529,8 @@ def quantile_projection(rv: RV,
     return RV(quantiles_at_locs, np.ones(no_quantiles) / no_quantiles)
 
 
-
-def categorical_projection(rv: RV) -> RV:
-    return rv
+# def categorical_projection(rv: RV) -> RV:
+#     return rv
 
 ####################
 # Algorithm 5.3    #
@@ -761,7 +773,7 @@ def conv_njit(
     return new_val, probs
 
 
-# @njit
+@njit
 def aggregate_conv_results(distr: Tuple[np.ndarray, np.ndarray], accuracy: float=1e-10) -> Tuple[np.ndarray, np.ndarray]:
     """Aggregate results of convolution.
     Sum up probabilities of same values.
