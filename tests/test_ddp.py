@@ -6,8 +6,9 @@ import numpy as np
 from src.preliminary_tests import (
     RV,
     ProjectionParameter,
-    State,
     ReturnDistributionFunction,
+    State,
+    RewardDistributionCollection,
     ddp,
     QuantileProjection,
     quant_projection_algo,
@@ -41,7 +42,7 @@ class TestQuantileProjection(unittest.TestCase):
                 [RV(xk=x, pk=pk) for x in [rv1_xk, rv2_xk, rv3_xk]]
             )
 
-    def test_inner_projection(self):
+    def test_projections(self):
         inner_param: ProjectionParameter
         outer_param: ProjectionParameter
         inner_param, outer_param = self.param_algo(2)
@@ -61,16 +62,41 @@ class TestQuantileProjection(unittest.TestCase):
         self.assertTrue(rv3_proj.size == 8)
 
 
+class TestRandomProjection(unittest.TestCase):
+
+    def setUp(self):
+        self.states = [State(i, "{i}", i) for i in range(3)]
+        rv1_xk = np.arange(1, 11)
+        rv2_xk = np.arange(5, 15)
+        rv3_xk = np.arange(11, 21)
+        pk = np.ones(10) / 10
+        self.return_distr_fun_est: ReturnDistributionFunction = \
+            ReturnDistributionFunction(
+                self.states,
+                [RV(xk=x, pk=pk) for x in [rv1_xk, rv2_xk, rv3_xk]]
+            )
+
+    def test_projection(self):
+        pass
+
+
 class TestDDP(unittest.TestCase):
+
     def test_ddp_one_step(self):
 
-        ddp(cyclical_env.mdp,
-            QuantileProjection(),
-            QuantileProjection(),
-            quant_projection_algo,
-            cyclical_env.return_distr_fun_est,
-            1)
+        ret_dist_est: ReturnDistributionFunction = \
+            ddp(cyclical_env.mdp,
+                QuantileProjection(),
+                QuantileProjection(),
+                quant_projection_algo,  # expect output sizes (1,1)
+                cyclical_env.return_distr_fun_est,
+                1)
         if DEBUG:
             logger.info("DDP one step completed.")
 
-        self.assertTrue(True)
+        self.assertTrue(
+            (ret_dist_est[cyclical_env.mdp.states[0]].size == 1) and
+            (ret_dist_est[cyclical_env.mdp.states[1]].size == 1) and
+            (ret_dist_est[cyclical_env.mdp.states[2]].size == 1)
+            # cyclical_env.return_distr_fun_est[cyclical_env.mdp.states[0]].size == 1
+        )

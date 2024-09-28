@@ -133,7 +133,7 @@ cyclical_distributions: List[RV] = [cyclical_distribution_1,
                                     cyclical_distribution_2,
                                     cyclical_distribution_3]
 
-cyclical_total_reward_distr_estimate: ReturnDistributionFunction = (
+cyclical_return_distr_estimate: ReturnDistributionFunction = (
     ReturnDistributionFunction(cyclical_states,
                                cyclical_distributions)
 )
@@ -149,5 +149,5 @@ cyclical_mdp.set_policy(cyclical_pi)
 
 cyclical_env: SimulationEnv = SimulationEnv(
     cyclical_mdp,
-    cyclical_total_reward_distr_estimate
+    cyclical_return_distr_estimate
 )
