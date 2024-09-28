@@ -1,6 +1,7 @@
 """Tests for Distributional Dynamic Programming algo."""
 
 import unittest
+import functools
 from typing import Tuple, Callable
 import numpy as np
 from src.preliminary_tests import (
@@ -9,6 +10,7 @@ from src.preliminary_tests import (
     ReturnDistributionFunction,
     State,
     RewardDistributionCollection,
+    algo_size_fun,
     ddp,
     QuantileProjection,
     quant_projection_algo,
@@ -82,6 +84,9 @@ class TestRandomProjection(unittest.TestCase):
 
 class TestDDP(unittest.TestCase):
 
+    def setUp(self):
+        pass
+
     def test_ddp_one_step(self):
 
         ret_dist_est: ReturnDistributionFunction = \
@@ -98,5 +103,33 @@ class TestDDP(unittest.TestCase):
             (ret_dist_est[cyclical_env.mdp.states[0]].size == 1) and
             (ret_dist_est[cyclical_env.mdp.states[1]].size == 1) and
             (ret_dist_est[cyclical_env.mdp.states[2]].size == 1)
-            # cyclical_env.return_distr_fun_est[cyclical_env.mdp.states[0]].size == 1
+        )
+
+    def test_ddp_one_step_another_size_fun(self):
+
+        def in_size_fun(x: int) -> ProjectionParameter:
+            return ProjectionParameter(x**2)
+
+        def out_size_fun(x: int) -> ProjectionParameter:
+            return ProjectionParameter(x**3)
+
+        quant_proj_2: Callable[..., Tuple[ProjectionParameter, ProjectionParameter]] = functools.partial(
+            algo_size_fun,
+            inner_size_fun=in_size_fun,
+            outer_size_fun=out_size_fun
+        )
+        ret_dist_est: ReturnDistributionFunction = \
+            ddp(
+                cyclical_env.mdp,
+                QuantileProjection(),
+                QuantileProjection(),
+                quant_proj_2,
+                cyclical_env.return_distr_fun_est,
+                iteration_num=2
+            )
+
+        self.assertTrue(
+            (ret_dist_est[cyclical_env.mdp.states[0]].size == 8) and
+            (ret_dist_est[cyclical_env.mdp.states[1]].size == 8) and
+            (ret_dist_est[cyclical_env.mdp.states[2]].size == 8)
         )

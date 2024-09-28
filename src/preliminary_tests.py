@@ -463,13 +463,13 @@ def ddp(mdp: MDP, inner_projection: Projection,
 
     dbo(mdp, return_distr_function, rewards_distr_coll)
     # apply outer projection
-    return_distr_function: ReturnDistributionFunction = \
+    return_distr_iterate: ReturnDistributionFunction = \
         ReturnDistributionFunction(
             return_distr_function.states,
             [outer_projection(return_distr_function[s]) for
                 s in return_distr_function.states]
         )
-    return return_distr_function
+    return return_distr_iterate
 
 
 def algo_size_fun(
