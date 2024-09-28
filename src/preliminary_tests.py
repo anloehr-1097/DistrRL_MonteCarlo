@@ -433,13 +433,14 @@ def dbo(mdp: MDP, ret_distr_function: ReturnDistributionFunction,
         ret_distr_function[state] = distr
 
 
-def ddp(mdp: MDP, inner_projection: Projection,
-        outer_projection: Projection,
-        param_algorithm: Callable[..., Tuple[ProjectionParameter, ProjectionParameter]],
-        return_distr_function: ReturnDistributionFunction,
+def ddp(
+    mdp: MDP, inner_projection: Projection,
+    outer_projection: Projection,
+    param_algorithm: Callable[..., Tuple[ProjectionParameter, ProjectionParameter]],
+    return_distr_function: ReturnDistributionFunction,
         iteration_num: int
-        ) -> ReturnDistributionFunction:
-    """Step of Distributional dynamic programming in iteration iteration_num.
+    ) -> ReturnDistributionFunction:
+    """1 Step of Distributional dynamic programming in iteration iteration_num.
 
     Carry out one step of distributional dynamic programming.
     """
@@ -488,11 +489,13 @@ def algo_size_fun(
 def poly_size_fun(x: int): return ProjectionParameter(value=x**2)
 
 
-quant_projection_algo = functools.partial(
-    algo_size_fun, inner_size_fun=poly_size_fun,
-    outer_size_fun=poly_size_fun,
-    previous_estimate=None
-)
+# iteration -> evaluated size functions as parameters
+quant_projection_algo: Callable[[int], Tuple[ProjectionParameter, ProjectionParameter]] = \
+    functools.partial(
+        algo_size_fun, inner_size_fun=poly_size_fun,
+        outer_size_fun=poly_size_fun,
+        previous_estimate=None
+    )
 
 
 class RandomProjection(Projection):
