@@ -438,7 +438,7 @@ def ddp(mdp: MDP, inner_projection: Projection,
         param_algorithm: Callable[..., Tuple[ProjectionParameter, ProjectionParameter]],
         return_distr_function: ReturnDistributionFunction,
         iteration_num: int
-        ) -> None:
+        ) -> ReturnDistributionFunction:
     """Step of Distributional dynamic programming in iteration iteration_num.
 
     Carry out one step of distributional dynamic programming.
@@ -463,12 +463,13 @@ def ddp(mdp: MDP, inner_projection: Projection,
 
     dbo(mdp, return_distr_function, rewards_distr_coll)
     # apply outer projection
-    return_distr_function = ReturnDistributionFunction(
-        return_distr_function.states,
-        [outer_projection(return_distr_function[s]) for
-            s in return_distr_function.states]
-    )
-    return None
+    return_distr_function: ReturnDistributionFunction = \
+        ReturnDistributionFunction(
+            return_distr_function.states,
+            [outer_projection(return_distr_function[s]) for
+                s in return_distr_function.states]
+        )
+    return return_distr_function
 
 
 def algo_size_fun(
@@ -556,7 +557,6 @@ def categorical_dynamic_programming(mdp: MDP,
                                     cat_distr_col: ReturnDistributionFunction,
                                     particles: np.ndarray)\
                                     -> ReturnDistributionFunction:
-
     """Categorical dynamic programming.
     Execute one step of the categorical dynamic programming algorithm.
 
