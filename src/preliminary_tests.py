@@ -364,19 +364,19 @@ class ProjectionParameter:
 class Projection:
     """Projection operator."""
 
-    def __init__(self):
-        self.projection: Optional[Callable[[RV, Optional[ProjectionParameter]], RV]] = None
-        return None
+    def __init__(self) -> None:
+        pass
 
-    def set_params(self, params: ProjectionParameter) -> None:
-        """Set parameters for projection."""
-        return None
+    def project(self, rv: RV, projection_param: ProjectionParameter, *args, **kwargs) -> RV:
+        """Project distribution."""
+        raise NotImplementedError("Project method not implemented.")
 
-    def __call__(self, rv: RV, *args, **kwargs) -> RV:
-        """Apply projection to distribution."""
-        if not self.projection:
-            raise NotImplementedError("Projection not implemented")
-        return self.projection(rv, *args, **kwargs)
+    def __call__(self, rv: RV, projection_param: ProjectionParameter, *args, **kwargs) -> RV:
+        """Apply projection to distribution.
+
+        Projection depends on projection parameter.
+        """
+        return self.project(rv, projection_param, *args, **kwargs)
 
 
 class ParameterAlgorithm:
@@ -449,12 +449,12 @@ def ddp(
     inner_params, outer_params = param_algorithm(
         iteration_num, previous_estimate=return_distr_function
     )
-    inner_projection.set_params(inner_params)
-    outer_projection.set_params(outer_params)
+    # inner_projection.set_params(inner_params)
+    # outer_projection.set_params(outer_params)
 
     rewards_distr_coll = RewardDistributionCollection(
         list(mdp.rewards.rewards.keys()),
-        [inner_projection(mdp.rewards[(s, a, s_bar)]) for
+        [inner_projection(mdp.rewards[(s, a, s_bar)], inner_params) for
          (s, a, s_bar) in
          itertools.product(mdp.states, mdp.actions, mdp.states)
          if mdp.transition_probs[(s, a)][s_bar.index] > 0
@@ -467,7 +467,7 @@ def ddp(
     return_distr_iterate: ReturnDistributionFunction = \
         ReturnDistributionFunction(
             return_distr_function.states,
-            [outer_projection(return_distr_function[s]) for
+            [outer_projection(return_distr_function[s], outer_params) for
                 s in return_distr_function.states]
         )
     return return_distr_iterate
@@ -498,19 +498,7 @@ quant_projection_algo: Callable[[int], Tuple[ProjectionParameter, ProjectionPara
     )
 
 
-class RandomProjection(Projection):
-    """Random Projection"""
-
-    def __init__(self, num_samples: int) -> None:
-        """Initialize random projection."""
-        self.num_samples: int = num_samples
-
-    def __call__(self, rv: RV) -> RV:
-        """Apply random projection."""
-        return random_projection(rv, self.num_samples)
-
-
-def random_projection(rv: RV, num_samples: int) -> RV:
+def random_projection(num_samples: int, rv: RV) -> RV:
     """Random projection of distribution."""
 
     atoms = rv.sample(num_samples)
@@ -518,23 +506,36 @@ def random_projection(rv: RV, num_samples: int) -> RV:
     return RV(atoms, weights)
 
 
+class RandomProjection(Projection):
+    """Random Projection"""
+
+    def project(self, rv: RV, projection_param: ProjectionParameter) -> RV:
+        assert isinstance(projection_param.value, int), \
+            "Random Projection expects int parameter."
+
+        atoms = rv.sample(projection_param.value)
+        weights = np.ones(projection_param.value) / projection_param.value
+        return RV(atoms, weights)
+
+
 class QuantileProjection(Projection):
     """Quantile projection."""
 
-    def __init__(self, num_quantiles: Optional[int]=None) -> None:
-        """Initialize quantile projection."""
-        self.num_quantiles: int
-        if num_quantiles: self.num_quantiles = num_quantiles
-
-    def set_params(self, params: ProjectionParameter) -> None:
-        assert isinstance(params.value, int), \
-            "Quantile Projection expects int parameter."
-        self.num_quantiles = params.value
-
-    def __call__(self, rv: RV) -> RV:
+    def project(self, rv: RV, projection_param: ProjectionParameter) -> RV:
         """Apply quantile projection."""
-        assert self.num_quantiles is not None, "Number of quantiles not set."
-        return quantile_projection(rv, self.num_quantiles)
+        assert isinstance(projection_param.value, int), \
+            "Quantile Projection expects int parameter."
+        return quantile_projection(rv, projection_param.value)
+
+    # def set_params(self, params: ProjectionParameter) -> None:
+    #     assert isinstance(params.value, int), \
+    #         "Quantile Projection expects int parameter."
+    #     self.num_quantiles = params.value
+    #
+    # def __call__(self, rv: RV) -> RV:
+    #     """Apply quantile projection."""
+    #     assert self.num_quantiles is not None, "Number of quantiles not set."
+    #     return quantile_projection(rv, self.num_quantiles)
 
 
 # @njit

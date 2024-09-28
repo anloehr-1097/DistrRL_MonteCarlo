@@ -48,12 +48,10 @@ class TestQuantileProjection(unittest.TestCase):
         inner_param: ProjectionParameter
         outer_param: ProjectionParameter
         inner_param, outer_param = self.param_algo(2)
-        self.inner_proj.set_params(inner_param)
-        self.outer_proj.set_params(outer_param)
 
-        rv1_proj = self.inner_proj(self.return_distr_fun_est[self.states[0]])
-        rv2_proj = self.inner_proj(self.return_distr_fun_est[self.states[1]])
-        rv3_proj = self.outer_proj(self.return_distr_fun_est[self.states[2]])
+        rv1_proj = self.inner_proj(self.return_distr_fun_est[self.states[0]], inner_param)
+        rv2_proj = self.inner_proj(self.return_distr_fun_est[self.states[1]], inner_param)
+        rv3_proj = self.outer_proj(self.return_distr_fun_est[self.states[2]], outer_param)
 
         if DEBUG:
             logger.info(f"Inner projection output size: {rv1_proj.size}")
