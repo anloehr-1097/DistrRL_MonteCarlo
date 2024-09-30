@@ -15,6 +15,7 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 from dataclasses import dataclass
 import itertools
 import functools
+from enum import Enum
 
 import pdb
 import matplotlib.pyplot as plt
@@ -356,9 +357,16 @@ TERMINAL_STATE: State = State(
 )
 
 
+type PPComponent = Union[int, np.float64, np.ndarray]
+
+
 @dataclass
 class ProjectionParameter:
-    value: Union[int, np.float64, np.ndarray]
+    # index_set: Union[List[Tuple[State, Action, State]], List[State]]
+    value: Dict[Union[Tuple[State, Action, State], State], PPComponent]
+
+    def __getitem__(self, idx: Union[Tuple[State, Action, State], State]) -> PPComponent:
+        return self.value[idx]
 
 
 class Projection:
@@ -367,14 +375,14 @@ class Projection:
     def __init__(self) -> None:
         pass
 
-    def project(self, rv: RV, projection_param: ProjectionParameter, *args, **kwargs) -> RV:
+    def project(self, rv: RV, projection_param: PPComponent, *args, **kwargs) -> RV:
         """Project distribution."""
         raise NotImplementedError("Project method not implemented.")
 
-    def __call__(self, rv: RV, projection_param: ProjectionParameter, *args, **kwargs) -> RV:
+    def __call__(self, rv: RV, projection_param: PPComponent, *args, **kwargs) -> RV:
         """Apply projection to distribution.
 
-        Projection depends on projection parameter.
+        Projection depends on projection parameter component.
         """
         return self.project(rv, projection_param, *args, **kwargs)
 
@@ -445,6 +453,8 @@ def ddp(
     Carry out one step of distributional dynamic programming.
     """
 
+    inner_params: ProjectionParameter
+    outer_params: ProjectionParameter
     # apply inner projection
     inner_params, outer_params = param_algorithm(
         iteration_num, previous_estimate=return_distr_function
@@ -454,7 +464,7 @@ def ddp(
 
     rewards_distr_coll = RewardDistributionCollection(
         list(mdp.rewards.rewards.keys()),
-        [inner_projection(mdp.rewards[(s, a, s_bar)], inner_params) for
+        [inner_projection(mdp.rewards[(s, a, s_bar)], inner_params[(s, a, s_bar)]) for
          (s, a, s_bar) in
          itertools.product(mdp.states, mdp.actions, mdp.states)
          if mdp.transition_probs[(s, a)][s_bar.index] > 0
@@ -467,7 +477,7 @@ def ddp(
     return_distr_iterate: ReturnDistributionFunction = \
         ReturnDistributionFunction(
             return_distr_function.states,
-            [outer_projection(return_distr_function[s], outer_params) for
+            [outer_projection(return_distr_function[s], outer_params[s]) for
                 s in return_distr_function.states]
         )
     return return_distr_iterate
@@ -486,7 +496,7 @@ def algo_size_fun(
     return (inner_size_fun(iteration_num), outer_size_fun(iteration_num))
 
 
-def poly_size_fun(x: int): return ProjectionParameter(value=x**2)
+def poly_size_fun(x: int) -> PPComponent: return x**2
 
 
 # iteration -> evaluated size functions as parameters
