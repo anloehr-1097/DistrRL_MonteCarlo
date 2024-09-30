@@ -357,7 +357,7 @@ TERMINAL_STATE: State = State(
 )
 
 
-type PPComponent = Union[int, np.float64, np.ndarray]
+PPComponent = Union[int, np.float64, np.ndarray]
 
 
 @dataclass
@@ -457,7 +457,10 @@ def ddp(
     outer_params: ProjectionParameter
     # apply inner projection
     inner_params, outer_params = param_algorithm(
-        iteration_num, previous_estimate=return_distr_function
+        iteration_num,
+        inner_index_set=list(itertools.product(mdp.states, mdp.actions, mdp.states)),
+        outer_index_set=mdp.states,
+        previous_estimate=return_distr_function
     )
     # inner_projection.set_params(inner_params)
     # outer_projection.set_params(outer_params)
@@ -485,22 +488,32 @@ def ddp(
 
 def algo_size_fun(
     iteration_num: int,
-    inner_size_fun: Callable[[int], ProjectionParameter],
-    outer_size_fun: Callable[[int], ProjectionParameter],
+    inner_index_set: List[Tuple[State, Action, State]],
+    outer_index_set: List[State],
+    inner_size_fun: Callable[[int], PPComponent],
+    outer_size_fun: Callable[[int], PPComponent],
     previous_estimate: Optional[ReturnDistributionFunction]=None,
         ) -> Tuple[ProjectionParameter, ProjectionParameter]:
     """Apply size functions to num_iteration.
 
     Provide any 2 size functions from |N -> |N
     """
-    return (inner_size_fun(iteration_num), outer_size_fun(iteration_num))
+
+    inner_params: Dict[Union[Tuple[State, Action, State], State], PPComponent] = {
+        idx: inner_size_fun(iteration_num) for idx in inner_index_set
+    }
+    outer_params: Dict[Union[Tuple[State, Action, State], State], PPComponent] = {
+        idx: outer_size_fun(iteration_num) for idx in outer_index_set
+    }
+
+    return ProjectionParameter(inner_params), ProjectionParameter(outer_params)
 
 
 def poly_size_fun(x: int) -> PPComponent: return x**2
 
 
 # iteration -> evaluated size functions as parameters
-quant_projection_algo: Callable[[int], Tuple[ProjectionParameter, ProjectionParameter]] = \
+quant_projection_algo: Callable[[int, List[Tuple[State, Action, State]], List[State]], Tuple[ProjectionParameter, ProjectionParameter]] = \
     functools.partial(
         algo_size_fun, inner_size_fun=poly_size_fun,
         outer_size_fun=poly_size_fun,
@@ -531,21 +544,11 @@ class RandomProjection(Projection):
 class QuantileProjection(Projection):
     """Quantile projection."""
 
-    def project(self, rv: RV, projection_param: ProjectionParameter) -> RV:
+    def project(self, rv: RV, projection_param: PPComponent) -> RV:
         """Apply quantile projection."""
-        assert isinstance(projection_param.value, int), \
+        assert isinstance(projection_param, int), \
             "Quantile Projection expects int parameter."
-        return quantile_projection(rv, projection_param.value)
-
-    # def set_params(self, params: ProjectionParameter) -> None:
-    #     assert isinstance(params.value, int), \
-    #         "Quantile Projection expects int parameter."
-    #     self.num_quantiles = params.value
-    #
-    # def __call__(self, rv: RV) -> RV:
-    #     """Apply quantile projection."""
-    #     assert self.num_quantiles is not None, "Number of quantiles not set."
-    #     return quantile_projection(rv, self.num_quantiles)
+        return quantile_projection(rv, projection_param)
 
 
 # @njit
