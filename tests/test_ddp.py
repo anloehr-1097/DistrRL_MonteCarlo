@@ -48,9 +48,14 @@ class TestQuantileProjection(unittest.TestCase):
                 [RV(xk=x, pk=pk) for x in [rv1_xk, rv2_xk, rv3_xk]]
             )
 
-    def param_algo(self, x: int) -> Tuple[ProjectionParameter, ProjectionParameter]:
-        ipp: ProjectionParameter = ProjectionParameter({(s, a, s_): x**2 for s, a, s_ in self.inner_index_set})
-        opp: ProjectionParameter = ProjectionParameter({s: x**3 for s in self.outer_index_set})
+    def param_algo(self, x: int) -> \
+            Tuple[ProjectionParameter, ProjectionParameter]:
+        ipp: ProjectionParameter = ProjectionParameter(
+            {(s, a, s_): x**2 for s, a, s_ in self.inner_index_set}
+        )
+        opp: ProjectionParameter = ProjectionParameter(
+            {s: x**3 for s in self.outer_index_set}
+        )
         return ipp, opp
 
     def test_projections(self):
@@ -64,7 +69,11 @@ class TestQuantileProjection(unittest.TestCase):
                 ]
         )
         rv2_proj = self.inner_proj(self.return_distr_fun_est[self.states[1]],
-                                   inner_param[self.states[0], self.actions[0], self.states[0]]
+                                   inner_param[
+                                       self.states[0],
+                                       self.actions[0],
+                                       self.states[0]
+                                   ]
                                    )
         rv3_proj = self.outer_proj(self.return_distr_fun_est[self.states[2]],
                                    outer_param[self.states[0]])
@@ -91,9 +100,6 @@ class TestRandomProjection(unittest.TestCase):
                 self.states,
                 [RV(xk=x, pk=pk) for x in [rv1_xk, rv2_xk, rv3_xk]]
             )
-
-    def test_projection(self):
-        pass
 
 
 class TestDDP(unittest.TestCase):
@@ -135,7 +141,10 @@ class TestDDP(unittest.TestCase):
         def out_size_fun(x: int) -> PPComponent:
             return x**3
 
-        quant_proj_2: Callable[..., Tuple[ProjectionParameter, ProjectionParameter]] = functools.partial(
+        quant_proj_2: Callable[
+            ...,
+            Tuple[ProjectionParameter, ProjectionParameter]] = \
+            functools.partial(
             algo_size_fun,
             inner_index_set=self.inner_index_set,
             outer_index_set=self.outer_index_set,

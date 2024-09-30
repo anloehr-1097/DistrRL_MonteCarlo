@@ -446,8 +446,7 @@ def ddp(
     outer_projection: Projection,
     param_algorithm: Callable[..., Tuple[ProjectionParameter, ProjectionParameter]],
     return_distr_function: ReturnDistributionFunction,
-        iteration_num: int
-    ) -> ReturnDistributionFunction:
+        iteration_num: int) -> ReturnDistributionFunction:
     """1 Step of Distributional dynamic programming in iteration iteration_num.
 
     Carry out one step of distributional dynamic programming.
