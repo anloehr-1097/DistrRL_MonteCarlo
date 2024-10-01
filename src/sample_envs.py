@@ -5,7 +5,9 @@ from typing import Iterator, List, Dict, Sequence
 # from numba import itertools
 import itertools
 import numpy as np
+import scipy.stats as sp
 from .preliminary_tests import (
+    ContinuousRV,
     State,
     Action,
     RV,
@@ -100,9 +102,13 @@ cyclical_transition_probs: TransitionKernel = TransitionKernel(
 
 # reward distributions for (state, action, next_state) triples
 # set samples for empirical approximation
-cyclical_r_001 = emp_normal(-3, np.sqrt(1), EMP_APPROX_SAMPLES)
-cyclical_r_102 = emp_normal(5, np.sqrt(2), EMP_APPROX_SAMPLES)
-cyclical_r_200 = emp_normal(0, np.sqrt(0.5), EMP_APPROX_SAMPLES)
+# cyclical_r_001 = emp_normal(-3, np.sqrt(1), EMP_APPROX_SAMPLES)
+# cyclical_r_102 = emp_normal(5, np.sqrt(2), EMP_APPROX_SAMPLES)
+# cyclical_r_200 = emp_normal(0, np.sqrt(0.5), EMP_APPROX_SAMPLES)
+
+cyclical_r_001 = ContinuousRV(scipy_rv_cont=sp.norm(loc=-3, scale=np.sqrt(1)))
+cyclical_r_102 = ContinuousRV(scipy_rv_cont=sp.norm(loc=5, scale=np.sqrt(2)))
+cyclical_r_200 = ContinuousRV(scipy_rv_cont=sp.norm(loc=0, scale=np.sqrt(0.5)))
 
 cyclical_state_action_state_triples: Iterator = \
     itertools.product(cyclical_states, cyclical_actions, cyclical_states)

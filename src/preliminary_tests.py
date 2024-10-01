@@ -130,7 +130,7 @@ class TransitionKernel:
 
 
 class RV:
-    """Discrete atomic random variable. 
+    """Discrete atomic random variable.
 
     It is vital that the RV is not modified from outside but only with
     the provided methods.
