@@ -14,6 +14,7 @@ import functools
 import numpy as np
 # import scipy.stats as sp
 from scipy.stats import rv_continuous
+from scipy.stats.distributions import rv_frozen
 from numba import njit
 
 from .nb_fun import _sort_njit, _qf_njit
@@ -21,7 +22,7 @@ from .utils import assert_probs_distr
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-DEBUG = True
+DEBUG = False
 MAX_TRAJ_LEN: int = 1000
 TERMINAL: int = -1
 NUMBA_SUPPORT: bool = True
@@ -227,8 +228,9 @@ class ContinuousRV(RV):
     - Monte Carlo Methods, i.e. sampling
     """
 
-    def __init__(self, scipy_rv_cont: rv_continuous) -> None:
+    def __init__(self, scipy_rv_cont: rv_frozen) -> None:
         self.sp_rv_cont = scipy_rv_cont
+        self.size = np.inf
 
     def sample(self, num_samples: int=1) -> np.ndarray:
         return np.asarray(self.sp_rv_cont.rvs(size=num_samples))
