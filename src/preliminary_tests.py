@@ -5,30 +5,19 @@ TODO: replace every indexing scheme with numerical indexing just based on the po
 """
 
 from __future__ import annotations
-# import numpy as np
-
-
 import logging
-import random
 import time
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Union
+from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 from dataclasses import dataclass
 import itertools
 import functools
-from enum import Enum
-
-import pdb
-import matplotlib.pyplot as plt
 import numpy as np
-import scipy.stats as sp
-from numba import njit, jit
+# import scipy.stats as sp
+from scipy.stats import rv_continuous
+from numba import njit
 
 from .nb_fun import _sort_njit, _qf_njit
 from .utils import assert_probs_distr
-
-# States: Dict[int, AnyType] holding possibly holding state representation as vector
-# Actions: Dict[int, Tuple[List[int], List[float]]] holding possible actions, probablity pairs for each state
-
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -140,13 +129,6 @@ class TransitionKernel:
         return self.state_action_probs[key]
 
 
-class ContinuousRV:
-    pass
-
-
-class DiscreteRV:
-    pass
-
 
 class RV:
     """Discrete atomic random variable. 
@@ -223,6 +205,33 @@ class RV:
         #     return _qf_njit(self.xk, self.pk, u)  # u: np.ndarray
         else:
             return np.vectorize(self.qf)(u)
+
+
+class ContinuousRV(RV):
+    """This is a wrapper for scipy continuous random variables.
+
+    The aim is to make continuous rv work with this implementation.
+
+    Needs to be supported:
+    - Projections of all kinds
+    - Monte Carlo Methods, i.e. sampling
+
+
+
+
+    """
+
+    def __init__(self, scipy_rv_cont: rv_continuous) -> None:
+        self.sp_rv_cont = scipy_rv_cont
+
+    def sample(self, num_samples: int=1) -> np.ndarray:
+        return np.asarray(self.sp_rv_cont.rvs(size=num_samples))
+
+    def cdf(self, x: np.ndarray) -> float:
+        return self.sp_rv_cont.cdf(x)
+
+class DiscreteRV(RV):
+    pass
 
 
 class ReturnDistributionFunction:
@@ -385,10 +394,6 @@ class Projection:
         Projection depends on projection parameter component.
         """
         return self.project(rv, projection_param, *args, **kwargs)
-
-
-class ParameterAlgorithm:
-    pass
 
 
 ###################################

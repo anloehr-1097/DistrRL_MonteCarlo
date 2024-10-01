@@ -27,6 +27,9 @@ class TestFiniteRV(unittest.TestCase):
             np.isclose(cdf_eval, 0.3),
             f"CDF evaluation failed.\nExpected: 0.3\nGot: {cdf_eval}")
 
+    def test_cdf_multiple(self):
+
+
     def test_qf_single(self):
         qf_eval_0 = self.rv.qf_single(0)
         qf_eval_1 = self.rv.qf_single(0.35)
