@@ -28,6 +28,9 @@ logging.basicConfig(level=logging.INFO)
 
 
 class TestQuantileProjection(unittest.TestCase):
+    """TODO maybe get rid of Projection Parameter.
+    May circumvent its usage in these tests.
+    """
 
     def setUp(self):
         self.states = [State(0, "{0}", 0)]

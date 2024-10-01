@@ -583,8 +583,31 @@ def quantile_projection(rv: RV,
     return RV(quantiles_at_locs, np.ones(no_quantiles) / no_quantiles)
 
 
-# def categorical_projection(rv: RV) -> RV:
-#     return rv
+q_proj: QuantileProjection = QuantileProjection()
+
+
+class GridValueProjection(Projection):
+    """Grid Value Projection."""
+
+    def project(self, rv: RV, projection_param: PPComponent) -> RV:
+        assert isinstance(projection_param, np.ndarray), \
+            "Grid Value Projection expects numpy ndarray parameter."
+
+        assert projection_param.size == rv.size, \
+            "projection param must be of size 2m - 1 where m in |N."
+
+        return grid_value_projection(rv, projection_param)
+
+
+def grid_value_projection(rv: RV, projection_param: np.ndarray) -> RV:
+    """Grid value projection."""
+    param_size: int =  projection_param.size // 2
+    xs: np.ndarray = projection_param[:param_size]
+    ys: np.ndarray = projection_param[param_size:]
+
+    # TODO continue here.
+    return rv
+
 
 ####################
 # Algorithm 5.3    #
