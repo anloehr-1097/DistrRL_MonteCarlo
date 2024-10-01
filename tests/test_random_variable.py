@@ -1,9 +1,12 @@
 """Tests for the random variable abstractions."""
 
-import numpy as np
 import unittest
-from src.preliminary_tests import RV, aggregate_conv_results
 import logging
+
+import numpy as np
+import scipy.stats as sp
+
+from src.preliminary_tests import RV, ContinuousRV, aggregate_conv_results
 
 DEBUG: bool = True
 
@@ -71,10 +74,48 @@ class TestFiniteRV(unittest.TestCase):
         rv = RV(xk, pk)
         self.assertTrue(np.unique(rv.xk).size == rv.xk.size)
 
+
 class TestContinuousRV(unittest.TestCase):
     def setUp(self):
-        pass
+        self.rv_1 = ContinuousRV(sp.norm(loc=0, scale=1))
+        self.rv_2 = ContinuousRV(sp.uniform(0, 2))
 
+    def test_cdf(self):
+        cdf_eval_0 = self.rv_1.cdf(0)
+        cdf_eval_1 = self.rv_2.cdf(np.asarray([0, 0.5, 1.5, 2]))
+        cdf_eval_2 = self.rv_2.cdf(1)
+
+        exp_0 = 0.5
+        exp_1 = np.array([0, 0.25, 0.75, 1])
+        exp_2 = 0.5
+        self.assertTrue(
+            np.isclose(cdf_eval_0, exp_0) and
+            np.isclose(cdf_eval_1, exp_1).all() and
+            np.isclose(cdf_eval_2, exp_2),
+            f"CDF evaluation failed for continuous rv.\n\
+            Expected:{exp_0, exp_1, exp_2}\n\
+            Got: {cdf_eval_0, cdf_eval_1, cdf_eval_2}")
+
+    def test_qf(self):
+        qf_eval_0 = self.rv_1.qf(0.5)
+        qf_eval_1 = self.rv_2.qf(np.array([0.25, 0.75]))
+        qf_eval_2 = self.rv_2.qf(0.5)
+
+        exp_0 = 0
+        exp_1 = np.array([0.5, 1.5])
+        exp_2 = 1
+        self.assertTrue(
+            np.isclose(qf_eval_0, exp_0) and
+            np.isclose(qf_eval_1, exp_1).all() and
+            np.isclose(qf_eval_2, exp_2),
+            f"Quantile function evaluation failed for continuous rv.\n\
+            Expected:{exp_0, exp_1, exp_2}\n\
+            Got: {qf_eval_0, qf_eval_1, qf_eval_2}")
+
+    def test_sampling(self):
+        n_samples = 1000
+        samples = self.rv_1.sample(n_samples)
+        self.assertTrue(samples.size == n_samples)
 
 
 class TestAggregation(unittest.TestCase):

@@ -129,7 +129,6 @@ class TransitionKernel:
         return self.state_action_probs[key]
 
 
-
 class RV:
     """Discrete atomic random variable. 
 
@@ -240,6 +239,11 @@ class ContinuousRV(RV):
         x: np.ndarray of size 1xN
         """
         return self.sp_rv_cont.cdf(x)
+
+    def qf(self, u: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
+        """Evaluate QF vectorized."""
+        return self.sp_rv_cont.ppf(u)
+
 
 class DiscreteRV(RV):
     pass
