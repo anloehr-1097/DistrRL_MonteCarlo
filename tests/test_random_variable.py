@@ -28,7 +28,10 @@ class TestFiniteRV(unittest.TestCase):
             f"CDF evaluation failed.\nExpected: 0.3\nGot: {cdf_eval}")
 
     def test_cdf_multiple(self):
-
+        cdf_eval = self.rv.cdf(np.array([3, 5]))
+        self.assertTrue(
+            np.isclose(cdf_eval, np.array([0.3, 0.5])).all(),
+            f"CDF evaluation failed.\nExpected: 0.3, 0.5\nGot: {cdf_eval}")
 
     def test_qf_single(self):
         qf_eval_0 = self.rv.qf_single(0)
@@ -67,6 +70,11 @@ class TestFiniteRV(unittest.TestCase):
         pk = pk / pk.sum()
         rv = RV(xk, pk)
         self.assertTrue(np.unique(rv.xk).size == rv.xk.size)
+
+class TestContinuousRV(unittest.TestCase):
+    def setUp(self):
+        pass
+
 
 
 class TestAggregation(unittest.TestCase):

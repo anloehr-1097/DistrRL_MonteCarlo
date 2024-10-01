@@ -146,7 +146,7 @@ class RV:
 
         self.xk: np.ndarray
         self.pk: np.ndarray
-        self.xk, self.pk = aggregate_conv_results((xk, pk))  # make sure xk has unique values
+        self.xk, self.pk = aggregate_conv_results((xk, pk))  # making sure xk has unique values
         self.is_sorted: bool = False
         self.size = self.xk.size
 
@@ -180,12 +180,23 @@ class RV:
         """Sample from distribution."""
         return self.sample()
 
-    def cdf(self, x: float) -> float:
-        """Evaluate CDF."""
+    def _cdf_single(self, x: float) -> float:
+        """Only to be called from cdf method since no sorting."""
+        return np.sum(self.pk[self.xk <= x])
 
+    def cdf(self, x: Union[np.ndarray, float]) -> np.ndarray:
+        """Evaluate CDF."""
         if not self.is_sorted:
             self._sort_njit() if NUMBA_SUPPORT else self._sort()
-        return np.sum(self.pk[self.xk <= x])
+
+        if isinstance(x, np.ndarray):
+            cdf_evals: np.ndarray = np.zeros(x.size)
+            for i in range(x.size):
+                cdf_evals[i] = self._cdf_single(x[i])
+            return cdf_evals
+
+        # any other numeric literal (int, float)
+        return np.asarray(self._cdf_single(x))
 
     def qf_single(self, u: float) -> float:
         """Evaluate quantile function."""
@@ -215,10 +226,6 @@ class ContinuousRV(RV):
     Needs to be supported:
     - Projections of all kinds
     - Monte Carlo Methods, i.e. sampling
-
-
-
-
     """
 
     def __init__(self, scipy_rv_cont: rv_continuous) -> None:
@@ -227,7 +234,11 @@ class ContinuousRV(RV):
     def sample(self, num_samples: int=1) -> np.ndarray:
         return np.asarray(self.sp_rv_cont.rvs(size=num_samples))
 
-    def cdf(self, x: np.ndarray) -> float:
+    def cdf(self, x: Union[np.ndarray, float]) -> np.ndarray:
+        """Evaluate CDF at x.
+        Args:
+        x: np.ndarray of size 1xN
+        """
         return self.sp_rv_cont.cdf(x)
 
 class DiscreteRV(RV):
