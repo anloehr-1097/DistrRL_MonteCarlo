@@ -553,12 +553,12 @@ def random_projection(num_samples: int, rv: RV) -> RV:
 class RandomProjection(Projection):
     """Random Projection"""
 
-    def project(self, rv: RV, projection_param: ProjectionParameter) -> RV:
-        assert isinstance(projection_param.value, int), \
+    def project(self, rv: RV, projection_param: PPComponent) -> RV:
+        assert isinstance(projection_param, int), \
             "Random Projection expects int parameter."
 
-        atoms = rv.sample(projection_param.value)
-        weights = np.ones(projection_param.value) / projection_param.value
+        atoms = rv.sample(projection_param)
+        weights = np.ones(projection_param) / projection_param
         return RV(atoms, weights)
 
 
