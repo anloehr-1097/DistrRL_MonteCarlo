@@ -20,6 +20,7 @@ from src.preliminary_tests import (
     RV,
     ReturnDistributionFunction,
     ProjectionParameter,
+    GridValueProjection
 )
 
 DEBUG: bool = True
@@ -123,8 +124,8 @@ class TestRandomProjection(unittest.TestCase):
 
         self.inner_proj: RandomProjection = RandomProjection()
         self.outer_proj: RandomProjection = RandomProjection()
-        rv1_xk_discrete = np.arange(1, 11)
-        pk = np.ones(10) / 10
+        rv1_xk_discrete: np.ndarray = np.arange(1, 11)
+        pk: np.ndarray = np.ones(10) / 10
         self.rv1_discrete = RV(xk=rv1_xk_discrete, pk=pk)
         self.rv2_cont = ContinuousRV(sp.norm(loc=0, scale=1))
 
@@ -132,10 +133,10 @@ class TestRandomProjection(unittest.TestCase):
         inner_ppcom: PPComponent = 5
         outer_ppcom: PPComponent = 25
 
-        rv1_proj_inner = self.inner_proj(self.rv1_discrete, inner_ppcom)
-        rv1_proj_outer = self.outer_proj(self.rv1_discrete, outer_ppcom)
-        rv2_proj_inner = self.inner_proj(self.rv2_cont, inner_ppcom)
-        rv2_proj_outer = self.outer_proj(self.rv2_cont, outer_ppcom)
+        rv1_proj_inner: RV = self.inner_proj(self.rv1_discrete, inner_ppcom)
+        rv1_proj_outer: RV = self.outer_proj(self.rv1_discrete, outer_ppcom)
+        rv2_proj_inner: RV = self.inner_proj(self.rv2_cont, inner_ppcom)
+        rv2_proj_outer: RV = self.outer_proj(self.rv2_cont, outer_ppcom)
 
         self.assertIsNotNone(rv1_proj_inner, "RV1 disc inner proj is None")
         self.assertIsNotNone(rv1_proj_outer, "RV1 disc outer proj is None")
@@ -144,4 +145,20 @@ class TestRandomProjection(unittest.TestCase):
 
 
 class TestGridValueProjection(unittest.TestCase):
-    pass
+    def setUp(self):
+
+        rv1_xk_discrete: np.ndarray = np.arange(1, 11)
+        pk: np.ndarray = np.ones(10) / 10
+        self.rv1_discrete: RV = RV(xk=rv1_xk_discrete, pk=pk)
+        self.rv2_cont: ContinuousRV = ContinuousRV(sp.uniform(0, 2))
+        self.grid_values: np.ndarray = \
+            np.array([0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.7, 0.9])
+        self.grid_value_proj: GridValueProjection = GridValueProjection()
+
+    def test_grid_value_projection(self):
+        rv1_proj: RV = self.grid_value_proj(self.rv1_discrete,
+                                            self.grid_values)
+        rv2_proj: RV = self.grid_value_proj(self.rv2_cont,
+                                            self.grid_values)
+        self.assertIsNotNone(rv1_proj, "RV1 disc proj is None")
+        self.assertIsNotNone(rv2_proj, "RV2 cont proj is None")

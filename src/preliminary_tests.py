@@ -593,7 +593,7 @@ class GridValueProjection(Projection):
         assert isinstance(projection_param, np.ndarray), \
             "Grid Value Projection expects numpy ndarray parameter."
 
-        assert projection_param.size == rv.size, \
+        assert projection_param.size % 2 == 1, \
             "projection param must be of size 2m - 1 where m in |N."
 
         return grid_value_projection(rv, projection_param)
@@ -601,12 +601,13 @@ class GridValueProjection(Projection):
 
 def grid_value_projection(rv: RV, projection_param: np.ndarray) -> RV:
     """Grid value projection."""
-    param_size: int =  projection_param.size // 2
+    param_size: int = projection_param.size // 2
     xs: np.ndarray = projection_param[:param_size]
     ys: np.ndarray = projection_param[param_size:]
-
-    # TODO continue here.
-    return rv
+    y_evals: np.ndarray = rv.cdf(ys)
+    pk: np.ndarray = np.concatenate([y_evals, np.asarray([1])]) - \
+        np.concatenate([y_evals, np.asarray([0])])
+    return RV(xs, pk)
 
 
 ####################
