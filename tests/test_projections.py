@@ -23,7 +23,7 @@ from src.preliminary_tests import (
     GridValueProjection
 )
 
-DEBUG: bool = True
+DEBUG: bool = False
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
@@ -67,7 +67,8 @@ class TestQuantileProjection(unittest.TestCase):
         )
         return ipp, opp
 
-    def test_projection(self):
+    def test_quantile_projection(self):
+        logger.info("Test quantile projection")
         inner_param: ProjectionParameter
         outer_param: ProjectionParameter
         inner_param, outer_param = self.param_algo(2)
@@ -130,6 +131,7 @@ class TestRandomProjection(unittest.TestCase):
         self.rv2_cont = ContinuousRV(sp.norm(loc=0, scale=1))
 
     def test_random_projection(self):
+        logger.info("Test random projection")
         inner_ppcom: PPComponent = 5
         outer_ppcom: PPComponent = 25
 
@@ -147,18 +149,36 @@ class TestRandomProjection(unittest.TestCase):
 class TestGridValueProjection(unittest.TestCase):
     def setUp(self):
 
-        rv1_xk_discrete: np.ndarray = np.arange(1, 11)
+        rv1_xk_discrete: np.ndarray = np.linspace(0.1, 1, 10)
         pk: np.ndarray = np.ones(10) / 10
         self.rv1_discrete: RV = RV(xk=rv1_xk_discrete, pk=pk)
-        self.rv2_cont: ContinuousRV = ContinuousRV(sp.uniform(0, 2))
+        self.rv2_cont: ContinuousRV = ContinuousRV(sp.uniform(0, 1))
         self.grid_values: np.ndarray = \
-            np.array([0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.7, 0.9])
+            np.array([0.1, 0.2, 0.3, 0.4, 0.9, 0.15, 0.25, 0.35, 0.7])
         self.grid_value_proj: GridValueProjection = GridValueProjection()
 
     def test_grid_value_projection(self):
+        logger.info("Test grid value projection")
         rv1_proj: RV = self.grid_value_proj(self.rv1_discrete,
                                             self.grid_values)
         rv2_proj: RV = self.grid_value_proj(self.rv2_cont,
                                             self.grid_values)
-        self.assertIsNotNone(rv1_proj, "RV1 disc proj is None")
-        self.assertIsNotNone(rv2_proj, "RV2 cont proj is None")
+
+        exp_probs_cont: np.ndarray = np.asarray([0.15, 0.1, 0.1, 0.35, 0.3])
+        exp_probs_disc: np.ndarray = np.asarray([0.1, 0.1, 0.1, 0.4, 0.3])
+
+        self.assertTrue(np.all(np.isclose(rv1_proj.xk, self.grid_values[:5])),
+                        f"rv1_proj.xk = {rv1_proj.xk} \n \
+                        Expected: {self.grid_values[:5]}")
+
+        self.assertTrue(np.all(np.isclose(rv1_proj.pk, exp_probs_disc)),
+                        f"rv1_proj.pk = {rv1_proj.pk} \n \
+                        Expected: {exp_probs_disc}")
+
+        self.assertTrue(np.all(np.isclose(rv2_proj.xk, self.grid_values[:5])),
+                        f"rv2_proj.xk = {rv2_proj.xk} \n \
+                        Expected: {self.grid_values[:5]}")
+
+        self.assertTrue(np.all(np.isclose(rv2_proj.pk, exp_probs_cont)),
+                        f"rv2_proj.pk = {rv2_proj.pk} \n \
+                        Expected: {exp_probs_cont}")

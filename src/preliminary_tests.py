@@ -180,9 +180,9 @@ class RV:
         """Sample from distribution."""
         return self.sample()
 
-    def _cdf_single(self, x: float) -> float:
+    def _cdf_single(self, x: float, accuracy: float = 1e-10) -> float:
         """Only to be called from cdf method since no sorting."""
-        return np.sum(self.pk[self.xk <= x])
+        return np.sum(self.pk[self.xk <= x+accuracy])
 
     def cdf(self, x: Union[np.ndarray, float]) -> np.ndarray:
         """Evaluate CDF."""
@@ -601,12 +601,12 @@ class GridValueProjection(Projection):
 
 def grid_value_projection(rv: RV, projection_param: np.ndarray) -> RV:
     """Grid value projection."""
-    param_size: int = projection_param.size // 2
+    param_size: int = (projection_param.size // 2) + 1
     xs: np.ndarray = projection_param[:param_size]
     ys: np.ndarray = projection_param[param_size:]
     y_evals: np.ndarray = rv.cdf(ys)
     pk: np.ndarray = np.concatenate([y_evals, np.asarray([1])]) - \
-        np.concatenate([y_evals, np.asarray([0])])
+        np.concatenate([np.asarray([0]), y_evals])
     return RV(xs, pk)
 
 
