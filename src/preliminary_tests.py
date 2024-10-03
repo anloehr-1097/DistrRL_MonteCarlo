@@ -248,7 +248,91 @@ class ContinuousRV(RV):
 
 
 class DiscreteRV(RV):
-    pass
+    """Discrete atomic random variable.
+
+    It is vital that the RV is not modified from outside but only with
+    the provided methods.
+    This is to ensure that the distribution's atoms are sorted when is_sorted is True.
+    """
+
+    def __init__(self, xk, pk) -> None:
+        """Initialize discrete random variable."""
+        assert isinstance(xk, np.ndarray) and isinstance(pk, np.ndarray), \
+            "Not numpy arrays upon creation of RV_Discrete."
+        assert xk.size == pk.size, "Size mismatch in xk and pk."
+
+        self.xk: np.ndarray
+        self.pk: np.ndarray
+        self.xk, self.pk = aggregate_conv_results((xk, pk))  # making sure xk has unique values
+        self.is_sorted: bool = False
+        self.size = self.xk.size
+
+    def distr(self) -> Tuple[np.ndarray, np.ndarray]:
+        """Return distribution as Tuple of numpy arrays."""
+        return self.xk, self.pk
+
+    def get_cdf(self) -> Tuple[np.ndarray, np.ndarray]:
+        self._sort_njit() if NUMBA_SUPPORT else self._sort()
+        return self.xk, np.cumsum(self.pk)
+
+    def _sort(self) -> None:
+        """Sort values and probs."""
+        indices = np.argsort(self.xk)
+        self.xk = self.xk[indices]
+        self.pk = self.pk[indices]
+        self.is_sorted = True
+
+    def _sort_njit(self) -> None:
+        self.xk, self.pk = _sort_njit(self.xk, self.pk)
+        self.is_sorted = True
+
+    def sample(self, num_samples: int=1) -> np.ndarray:
+        """Sample from distribution.
+
+        So far only allow 1D sampling.
+        """
+        return np.random.choice(self.xk, p=self.pk, size=num_samples)
+
+    def __call__(self) -> np.ndarray:
+        """Sample from distribution."""
+        return self.sample()
+
+    def _cdf_single(self, x: float, accuracy: float = 1e-10) -> float:
+        """Only to be called from cdf method since no sorting."""
+        return np.sum(self.pk[self.xk <= x+accuracy])
+
+    def cdf(self, x: Union[np.ndarray, float]) -> np.ndarray:
+        """Evaluate CDF."""
+        if not self.is_sorted:
+            self._sort_njit() if NUMBA_SUPPORT else self._sort()
+
+        if isinstance(x, np.ndarray):
+            cdf_evals: np.ndarray = np.zeros(x.size)
+            for i in range(x.size):
+                cdf_evals[i] = self._cdf_single(x[i])
+            return cdf_evals
+
+        # any other numeric literal (int, float)
+        return np.asarray(self._cdf_single(x))
+
+    def qf_single(self, u: float) -> float:
+        """Evaluate quantile function."""
+        if np.isclose(u, 1): return self.xk[-1]
+        elif np.isclose(u, 0): return -np.inf
+        else:
+            if not self.is_sorted:
+                self._sort_njit() if NUMBA_SUPPORT else self._sort()
+            return self.xk[(np.searchsorted(np.round(np.cumsum(self.pk), NUM_PRECISION_DECIMALS), u))]
+
+    def qf(self, u: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
+        """Evaluate QF vectorized."""
+        if isinstance(u, float):
+            return self.qf_single(u)
+
+        # if NUMBA_SUPPORT:
+        #     return _qf_njit(self.xk, self.pk, u)  # u: np.ndarray
+        else:
+            return np.vectorize(self.qf)(u)
 
 
 class ReturnDistributionFunction:
@@ -257,7 +341,7 @@ class ReturnDistributionFunction:
     # TODO instead of using tuple directly, use RV_Discrete
 
     def __init__(self, states: Sequence[State],
-                 distributions: Optional[Sequence[RV]]) -> None:
+                 distributions: Optional[Sequence[DiscreteRV]]) -> None:
         """Initialize collection of categorical distributions."""
         self.states: Sequence[State] = states
         if distributions:
@@ -265,7 +349,7 @@ class ReturnDistributionFunction:
         else:
             self.distr: Dict = {s: None for s in states}
 
-    def __getitem__(self, state: Union[State, int]) -> RV:
+    def __getitem__(self, state: Union[State, int]) -> DiscreteRV:
         """Return distribution for state."""
         if isinstance(state, int):
             target_state = list(filter(lambda s: s.index == state, self.states))[0]
@@ -276,7 +360,7 @@ class ReturnDistributionFunction:
     def __len__(self) -> int:
         return len(self.states)
 
-    def __setitem__(self, key: int, value: RV) -> None:
+    def __setitem__(self, key: int, value: DiscreteRV) -> None:
         """Set distribution for state."""
         self.distr[key] = value
 
@@ -401,11 +485,11 @@ class Projection:
     def __init__(self) -> None:
         pass
 
-    def project(self, rv: RV, projection_param: PPComponent, *args, **kwargs) -> RV:
+    def project(self, rv: RV, projection_param: PPComponent, *args, **kwargs) -> DiscreteRV:
         """Project distribution."""
         raise NotImplementedError("Project method not implemented.")
 
-    def __call__(self, rv: RV, projection_param: PPComponent, *args, **kwargs) -> RV:
+    def __call__(self, rv: RV, projection_param: PPComponent, *args, **kwargs) -> DiscreteRV:
         """Apply projection to distribution.
 
         Projection depends on projection parameter component.
@@ -457,7 +541,7 @@ def dbo(mdp: MDP, ret_distr_function: ReturnDistributionFunction,
         eta_next[state] = aggregate_conv_results(
             (np.concatenate(new_vals), np.concatenate(new_probs))
         )
-        eta_next[state] = RV(*eta_next[state])
+        eta_next[state] = DiscreteRV(*eta_next[state])
 
     for state, distr in eta_next.items():
         ret_distr_function[state] = distr
@@ -547,25 +631,25 @@ def random_projection(num_samples: int, rv: RV) -> RV:
 
     atoms = rv.sample(num_samples)
     weights = np.ones(num_samples) / num_samples
-    return RV(atoms, weights)
+    return DiscreteRV(atoms, weights)
 
 
 class RandomProjection(Projection):
     """Random Projection"""
 
-    def project(self, rv: RV, projection_param: PPComponent) -> RV:
+    def project(self, rv: RV, projection_param: PPComponent) -> DiscreteRV:
         assert isinstance(projection_param, int), \
             "Random Projection expects int parameter."
 
         atoms = rv.sample(projection_param)
         weights = np.ones(projection_param) / projection_param
-        return RV(atoms, weights)
+        return DiscreteRV(atoms, weights)
 
 
 class QuantileProjection(Projection):
     """Quantile projection."""
 
-    def project(self, rv: RV, projection_param: PPComponent) -> RV:
+    def project(self, rv: RV, projection_param: PPComponent) -> DiscreteRV:
         """Apply quantile projection."""
         assert isinstance(projection_param, int), \
             "Quantile Projection expects int parameter."
@@ -574,13 +658,13 @@ class QuantileProjection(Projection):
 
 # @njit
 def quantile_projection(rv: RV,
-                        no_quantiles: int) -> RV:
+                        no_quantiles: int) -> DiscreteRV:
     """Apply quantile projection as described in book to a distribution."""
-    if rv.size <= no_quantiles: return rv
+    if rv.size <= no_quantiles and isinstance(rv, DiscreteRV): return rv  # type: ignore
     quantile_locs: np.ndarray = (2 * (np.arange(1, no_quantiles + 1)) - 1) /\
         (2 * no_quantiles)
     quantiles_at_locs = rv.qf(quantile_locs)
-    return RV(quantiles_at_locs, np.ones(no_quantiles) / no_quantiles)
+    return DiscreteRV(quantiles_at_locs, np.ones(no_quantiles) / no_quantiles)
 
 
 q_proj: QuantileProjection = QuantileProjection()
@@ -589,7 +673,7 @@ q_proj: QuantileProjection = QuantileProjection()
 class GridValueProjection(Projection):
     """Grid Value Projection."""
 
-    def project(self, rv: RV, projection_param: PPComponent) -> RV:
+    def project(self, rv: RV, projection_param: PPComponent) -> DiscreteRV:
         assert isinstance(projection_param, np.ndarray), \
             "Grid Value Projection expects numpy ndarray parameter."
 
@@ -599,7 +683,7 @@ class GridValueProjection(Projection):
         return grid_value_projection(rv, projection_param)
 
 
-def grid_value_projection(rv: RV, projection_param: np.ndarray) -> RV:
+def grid_value_projection(rv: RV, projection_param: np.ndarray) -> DiscreteRV:
     """Grid value projection."""
     param_size: int = (projection_param.size // 2) + 1
     xs: np.ndarray = projection_param[:param_size]
@@ -607,7 +691,7 @@ def grid_value_projection(rv: RV, projection_param: np.ndarray) -> RV:
     y_evals: np.ndarray = rv.cdf(ys)
     pk: np.ndarray = np.concatenate([y_evals, np.asarray([1])]) - \
         np.concatenate([np.asarray([0]), y_evals])
-    return RV(xs, pk)
+    return DiscreteRV(xs, pk)
 
 
 ####################
@@ -791,20 +875,20 @@ def filter_and_aggregate(vals: np.ndarray, probs: np.ndarray) \
 #     return RV(values_at_quantiles, np.ones(no_quantiles) / no_quantiles)
 #
 
-def scale(distr: RV, gamma: np.float64) -> RV:
+def scale(distr: DiscreteRV, gamma: np.float64) -> DiscreteRV:
     """Scale distribution by factor."""
     new_val = distr.xk * gamma
     new_prob = distr.pk
-    return RV(new_val, new_prob)
+    return DiscreteRV(new_val, new_prob)
 
 
-def conv(a: RV, b: RV) -> RV:
+def conv(a: DiscreteRV, b: DiscreteRV) -> DiscreteRV:
     """Convolution of two distributions.
     0th entry values, 1st entry probabilities.
     """
     new_val: np.ndarray = np.add(a.xk, b.xk[:, None]).flatten()
     probs: np.ndarray = np.multiply(a.pk, b.pk[:, None]).flatten()
-    return RV(new_val, probs)
+    return DiscreteRV(new_val, probs)
 
 
 def time_it(debug: bool) -> Callable:
@@ -974,7 +1058,7 @@ def simulate_one_step(
     proj_func: Callable,
 ) -> Tuple[np.ndarray, np.ndarray]:
 
-    g_t: Tuple[np.ndarray, np.ndarray] = aggregate_conv_results(RV(conv_njit(dist1, dist2)[0], conv_njit(dist1, dist2)[1]))
+    g_t: Tuple[np.ndarray, np.ndarray] = aggregate_conv_results(DiscreteRV(conv_njit(dist1, dist2)[0], conv_njit(dist1, dist2)[1]))
     g_t = proj_func(
         values=g_t[0], probs=g_t[1], no_of_bins=(time_step + 1) * 10, state=1
     )

@@ -6,7 +6,7 @@ import logging
 import numpy as np
 import scipy.stats as sp
 
-from src.preliminary_tests import RV, ContinuousRV, aggregate_conv_results
+from src.preliminary_tests import DiscreteRV, ContinuousRV, aggregate_conv_results
 
 DEBUG: bool = True
 
@@ -18,7 +18,7 @@ class TestFiniteRV(unittest.TestCase):
     def setUp(self):
         vals = np.arange(1, 11, 1)
         probs = np.ones(10) * (1/10)
-        self.rv = RV(vals, probs)
+        self.rv = DiscreteRV(vals, probs)
 
         if DEBUG:
             logger.info(f"Random variable: {self.rv.distr()}")
@@ -68,10 +68,10 @@ class TestFiniteRV(unittest.TestCase):
             {expected, expected_single}\nGot: {qf_eval, qf_eval_single}")
 
     def test_creation_duplicates(self):
-        xk = np.array([1,2,3,3,3,4,5])
+        xk = np.array([1, 2, 3, 3, 3, 4, 5])
         pk = np.ones(xk.size)
         pk = pk / pk.sum()
-        rv = RV(xk, pk)
+        rv = DiscreteRV(xk, pk)
         self.assertTrue(np.unique(rv.xk).size == rv.xk.size)
 
 
@@ -123,7 +123,7 @@ class TestAggregation(unittest.TestCase):
         self.xk = np.array([1, 2, 2, 3, 4, 5, 5.1, 8, 9, 10])
         self.pk = np.ones(self.xk.size)
         self.pk = self.pk / self.pk.sum()
-        self.rv = RV(self.xk, self.pk)
+        self.rv = DiscreteRV(self.xk, self.pk)
 
     def test_aggregation(self):
         xk_agg, pk_agg = aggregate_conv_results(self.rv.distr())

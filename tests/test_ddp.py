@@ -6,7 +6,7 @@ import itertools
 from typing import Tuple, Callable, List
 import numpy as np
 from src.preliminary_tests import (
-    RV,
+    DiscreteRV,
     Action,
     PPComponent,
     ProjectionParameter,
@@ -45,7 +45,7 @@ class TestQuantileProjection(unittest.TestCase):
         self.return_distr_fun_est: ReturnDistributionFunction = \
             ReturnDistributionFunction(
                 self.states,
-                [RV(xk=x, pk=pk) for x in [rv1_xk, rv2_xk, rv3_xk]]
+                [DiscreteRV(xk=x, pk=pk) for x in [rv1_xk, rv2_xk, rv3_xk]]
             )
 
     def param_algo(self, x: int) -> \
@@ -98,7 +98,7 @@ class TestRandomProjection(unittest.TestCase):
         self.return_distr_fun_est: ReturnDistributionFunction = \
             ReturnDistributionFunction(
                 self.states,
-                [RV(xk=x, pk=pk) for x in [rv1_xk, rv2_xk, rv3_xk]]
+                [DiscreteRV(xk=x, pk=pk) for x in [rv1_xk, rv2_xk, rv3_xk]]
             )
 
 

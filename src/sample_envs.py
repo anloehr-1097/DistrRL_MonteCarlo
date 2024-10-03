@@ -11,6 +11,7 @@ from .preliminary_tests import (
     State,
     Action,
     RV,
+    DiscreteRV,
     RewardDistributionCollection,
     ReturnDistributionFunction,
     TransitionKernel,
@@ -35,7 +36,7 @@ bernoulli_states = [State(0, "0", 0)]
 bernoulli_actions = [Action(0, "0", 0)]
 bernoulli_rewards = RewardDistributionCollection(
     [(bernoulli_states[0], bernoulli_actions[0], bernoulli_states[0])],
-    [RV(np.array([0.0, 1.0]), np.array([0.5, 0.5]))])
+    [DiscreteRV(np.array([0.0, 1.0]), np.array([0.5, 0.5]))])
 bernoulli_transitions = TransitionKernel(
     bernoulli_states,
     bernoulli_actions,
@@ -55,10 +56,10 @@ bernoulli_pi: Policy = Policy(
     probs={bernoulli_states[0]: np.array([1.0])},
 )
 
-bernoulli_distribution_1: RV = RV(
+bernoulli_distribution_1: DiscreteRV = DiscreteRV(
     xk=np.array([0, 1.0]), pk=np.array([0.5, 0.5])
 )
-bernoulli_distributions: List[RV] = [bernoulli_distribution_1]
+bernoulli_distributions: List[DiscreteRV] = [bernoulli_distribution_1]
 
 bernoulli_total_reward_distr_estimate: ReturnDistributionFunction = (
     ReturnDistributionFunction(bernoulli_mdp.states, bernoulli_distributions)
@@ -126,18 +127,18 @@ cyclical_rewards = RewardDistributionCollection(
     distributions=[cyclical_r_001, cyclical_r_102, cyclical_r_200])
 
 # initial total reward distributions for each state
-cyclical_distribution_1: RV = RV(
+cyclical_distribution_1: DiscreteRV = DiscreteRV(
     xk=np.array([-3.0, 1.0]), pk=np.array([0.5, 0.5])
 )
-cyclical_distribution_2: RV = RV(
+cyclical_distribution_2: DiscreteRV = DiscreteRV(
     xk=np.array([-3.0, 1.0]), pk=np.array([0.5, 0.5])
 )
-cyclical_distribution_3: RV = RV(
+cyclical_distribution_3: DiscreteRV = DiscreteRV(
     xk=np.array([-3.0, 1.0]), pk=np.array([0.5, 0.5])
 )
-cyclical_distributions: List[RV] = [cyclical_distribution_1,
-                                    cyclical_distribution_2,
-                                    cyclical_distribution_3]
+cyclical_distributions: List[DiscreteRV] = [cyclical_distribution_1,
+                                            cyclical_distribution_2,
+                                            cyclical_distribution_3]
 
 cyclical_return_distr_estimate: ReturnDistributionFunction = (
     ReturnDistributionFunction(cyclical_states,
