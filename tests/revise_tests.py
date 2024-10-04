@@ -3,7 +3,7 @@
 import numpy as np
 from typing import Tuple
 import unittest
-from src.preliminary_tests import categorical_projection
+from src.preliminary_tests import DiscreteRV, categorical_projection
 
 DEBUG: bool = False
 
@@ -34,7 +34,7 @@ class TestCategoricalProjection(unittest.TestCase):
                         "Expected probs do not sum to 1.")
 
         new_distr: Tuple[np.ndarray, np.ndarray] = categorical_projection(
-            (values, probs), particles)
+            DiscreteRV(values, probs), particles)
 
         self.assertTrue(np.equal(new_distr[0], particles).all(),
                         "Particles changed.")

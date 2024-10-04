@@ -1,6 +1,8 @@
 
 from typing import Callable, Tuple, Union
 import numpy as np
+# from src.preliminary_tests import DiscreteRV
+
 
 def assert_probs_distr(probs: np.ndarray) -> None:
     assert np.isclose(np.sum(probs), 1), "Probs do not sum to 1."
@@ -22,4 +24,3 @@ def dkw_bounds(
     upper_bound = np.minimum(yval + epsilon, 1)
     lower_bound = np.maximum(yval - epsilon, 0)
     return yval, lower_bound, upper_bound
-

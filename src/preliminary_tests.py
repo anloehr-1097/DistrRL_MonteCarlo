@@ -1,7 +1,9 @@
 """Preliminary tests for master thesis.
 
-TODO: replace every indexing scheme with numerical indexing just based on the pointer of the element
-      inkeeping with that, hold probs as a 2d array with rows summing to one, which might make code faster, check that
+TODO: replace every indexing scheme with numerical indexing just based on the
+    pointer of the element
+    inkeeping with that, hold probs as a 2d array with rows summing to one,
+    which might make code faster, check that
 """
 
 from __future__ import annotations
@@ -27,14 +29,6 @@ MAX_TRAJ_LEN: int = 1000
 TERMINAL: int = -1
 NUMBA_SUPPORT: bool = True
 NUM_PRECISION_DECIMALS: int = 20
-
-# need some initial collection of distrs for the total reward =: nu^0
-# need some return distributons
-# need samples from return distr for each triple (s, a, s') (N * |S| * |A| * |S|) many)
-# need Bellman operator
-# need some policy (fixed), define state - action dynamics
-# need some distributions such that everything is known and can be compared
-# define random bellman operator as partial function
 
 
 @dataclass(frozen=True)
@@ -87,8 +81,9 @@ class Policy:
         self.action_indices: np.ndarray = np.asarray(
             [action.index for action in self.actions]
         )
+        # Caution: action indices must align with order of probs
 
-        #self.actions: np.ndarray[Action] = np.asarray([actions.index for action in actions])  # 1-d
+        # self.actions: np.ndarray[Action] = np.asarray([actions.index for action in actions])  # 1-d
         self.probs: Dict[State, np.ndarray] = probs
 
     def __getitem__(self, state: State) -> np.ndarray:
@@ -96,7 +91,7 @@ class Policy:
         return self.probs[state]
 
     def sample_action(self, state: State) -> Action:
-        # action indices MUST align with order of probs
+        """Sample action from pi(state)."""
         action_index: int = np.random.choice(
             self.action_indices,
             p=self.probs[state]
@@ -105,14 +100,21 @@ class Policy:
 
 
 class TransitionKernel:
-    """Transition kernel for MDP."""
+    """Transition kernel for MDP.
 
-    # TODO: needs work, transiton kernel should yield probs (x, a) -> x'
+    Args:
+    states: Sequence of states
+    actions: Sequence of actions
+    probs: Mapping of state, action pairs to probs to next states.
+        Make sure that the order of states mathces the order of states
+        in the states sequence.
+    """
+
     def __init__(
         self,
         states: Sequence[State],
         actions: Sequence[Action],
-        probs: Dict[Tuple[State, Action], np.ndarray],  # ensure same order as states
+        probs: Dict[Tuple[State, Action], np.ndarray]
     ):
         """Initialize transition kernel."""
         for state in states:
@@ -131,12 +133,7 @@ class TransitionKernel:
 
 
 class RV:
-    """Discrete atomic random variable.
-
-    It is vital that the RV is not modified from outside but only with
-    the provided methods.
-    This is to ensure that the distribution's atoms are sorted when is_sorted is True.
-    """
+    """Random variable base class used for subclassing."""
 
     def __init__(self, xk, pk) -> None:
         """Initialize discrete random variable."""
@@ -146,7 +143,9 @@ class RV:
 
         self.xk: np.ndarray
         self.pk: np.ndarray
-        self.xk, self.pk = aggregate_conv_results((xk, pk))  # making sure xk has unique values
+
+        # make sure x has unique values
+        self.xk, self.pk = aggregate_conv_results((xk, pk))
         self.is_sorted: bool = False
         self.size = self.xk.size
 
@@ -694,54 +693,9 @@ def grid_value_projection(rv: RV, projection_param: np.ndarray) -> DiscreteRV:
     return DiscreteRV(xs, pk)
 
 
-####################
-# Algorithm 5.3    #
-####################
-# TODO this is not used anymore but some pieces might be used
-def categorical_dynamic_programming(mdp: MDP,
-                                    pi: Policy,
-                                    cat_distr_col: ReturnDistributionFunction,
-                                    particles: np.ndarray)\
-                                    -> ReturnDistributionFunction:
-    """Categorical dynamic programming.
-    Execute one step of the categorical dynamic programming algorithm.
-
-    An implementation of Algorithm 5.3 from the DRL book.
-    This algorithm applies the categorical projection after computing the convolution.
-    For a fixed number of particles m, the algorithm projects an arbitrary distribution
-    d onto a distribution with m atoms at the same location and ajusts the probabilities.
-    """
-    # assume cat_dist_col already categorical representation of (\theta_i, p_i)
-    assert assert_equidistant_particles(particles) is False, \
-        "Check initial particles, not equidistant."
-
-    # ensure sorted particles
-    particles = np.sort(particles)
-
-    # apply categorical projection to initial distribution
-    for idx, state in enumerate(cat_distr_col.states):
-        cat_distr_col[idx] = RV(
-            *categorical_projection(cat_distr_col[state].distr(),
-                                    particles))
-
-    # apply algo 5.1
-    dbo_result: ReturnDistributionFunction = categorical_dbo(mdp, pi,
-                                                             cat_distr_col)
-
-    # for each state, apply quantalie projection
-    for idx, state in enumerate(dbo_result.states):
-        dbo_result[state] = RV(
-            *categorical_projection(dbo_result[state].distr(), particles))
-    return dbo_result
 
 
-def assert_equidistant_particles(particles: np.ndarray) -> np.bool_:
-    """Assert that particles are equidistant."""
-    return np.all(np.diff(particles) ==
-                  (particles[-1] - particles[0])/(particles.size - 1))
-
-
-def categorical_projection(rv: RV,
+def categorical_projection(rv: DiscreteRV,
                            particles: np.ndarray)\
                            -> Tuple[np.ndarray, np.ndarray]:
     """Apply categorical projection as described in book to a distribution."""
@@ -790,60 +744,6 @@ def categorical_projection(rv: RV,
     return (particles, new_probs)
 
 
-####################
-# Algorithm 5.4    #
-####################
-def quantile_dynamic_programming(
-    mdp: MDP, pi: Policy,
-    cat_distr_col: ReturnDistributionFunction,
-        no_of_quantiles: int) -> ReturnDistributionFunction:
-    r"""Quantile dynamic programming.
-
-    Execute one step of the quantile dynamic programming algorithm.
-
-    An implementation of Algorithm 5.4 from the DRL book.
-    This algorithm applies the quantile projection after computing the convolution.
-    For a fixed number of particles m, the algorithm projects an arbitrary distribution
-    d onto a distribution with m atoms with equal probability. The i-th location / atom
-    \\theta_i is obtained by calculating F^{-1}(2*i - 1 / 2m) where F^{-1} is the QF of d.
-    """
-    # get the initial quantile projection of cat_distr_col before any dbo application
-    for idx, state in enumerate(cat_distr_col.states):
-        cat_distr_col[idx] = RV(
-            *quantile_projection(cat_distr_col[state].distr(), no_of_quantiles))
-
-    # apply algo 5.1
-    dbo_result: ReturnDistributionFunction = categorical_dbo(mdp, pi, cat_distr_col)
-
-    # for each state, apply quantalie projection
-    for idx, state in enumerate(dbo_result.states):
-        dbo_result[state] = RV(
-            *quantile_projection(dbo_result[state].distr(), no_of_quantiles))
-    return dbo_result
-
-
-# TODO resolve error, numba does not compile correctly, get type error 
-# @njit 
-def filter_and_aggregate(vals: np.ndarray, probs: np.ndarray) \
-        -> Tuple[np.ndarray, np.ndarray]:
-    """Filter and aggregate unique values / probs in a distribution.
-
-    Assume that values are in increasing order.
-    """
-    current_val_idx: int = -1
-    current_val: Optional[np.float64] = np.float64(vals[0] - 1) 
-    new_probs: List[np.float64] = []
-
-    for idx, val in enumerate(vals):
-        if abs(val - current_val) < 1e-10:
-            new_probs[current_val_idx] += probs[idx]
-        else:
-            current_val = val
-            new_probs.append(probs[idx])
-            current_val_idx += 1
-
-    new_vals: np.ndarray = np.unique(vals)
-    return new_vals, np.asarray(new_probs)
 
 
 # TODO: possible enable @njit
@@ -970,101 +870,6 @@ def aggregate_conv_results(distr: Tuple[np.ndarray, np.ndarray], accuracy: float
     return np.asarray(ret_dist_v), np.asarray(ret_dist_p)
 
 
-def apply_projection(func: Callable) -> Callable:
-    """Apply binning as returned from func.
-
-    Assumes that kwargs["probs"] is in kwargs.
-    """
-
-    def apply_projection_inner(*args, **kwargs) -> Tuple[np.ndarray, np.ndarray]:
-        bins: np.ndarray
-        no_of_bins: int
-        bin_values: np.ndarray
-
-        bins, bin_values, no_of_bins = func(*args, **kwargs)
-        # do binning, stupidly
-        # new_values: np.ndarray = np.zeros(no_of_bins)
-        new_probs: np.ndarray = np.zeros(no_of_bins)
-
-        for i in range(no_of_bins):
-            new_probs[i] = np.sum(kwargs["probs"][bins == i])
-
-        new_probs = new_probs / np.sum(new_probs)
-
-        return bin_values, new_probs
-
-    return apply_projection_inner
-
-
-@apply_projection
-@njit
-def project_eqi(
-    values: np.ndarray, probs: np.ndarray, no_of_bins: int, state: int
-) -> Tuple[np.ndarray, np.ndarray, int]:
-    """Project equisdistantly. Return bins."""
-    v_min: np.float64
-    v_max: np.float64
-    v_min, v_max = np.min(values), np.max(values)
-    breadth: np.float64 = v_max - v_min
-    breadth /= no_of_bins
-
-    bin_values: np.ndarray = np.linspace(v_min - breadth, v_max + breadth, no_of_bins)
-    assert bin_values.size == no_of_bins, "wrong number of bins."
-    bins: np.ndarray = np.digitize(values, bin_values)
-    return bins, bin_values, no_of_bins
-
-
-def simulate_update(
-    time_steps: int,
-    num_samples: int,
-    reward_distr: Tuple[np.ndarray, np.ndarray],
-    proj_func: Callable,
-) -> Tuple[np.ndarray, np.ndarray]:
-    """Simulate update of aggregate return distribution over time_steps periods.
-
-    Return aggregate return distribution.
-    """
-
-    approx_list: List = []
-    # start with some random intial aggregate return distribution
-    num_elements_g0: int = np.random.randint(1, 100)
-    rand_values: np.ndarray = np.random.random(num_elements_g0)
-
-    g_0: Tuple[np.ndarray, np.ndarray] = (
-        rand_values,
-        rand_values / np.sum(rand_values),
-    )
-    print(f"g_0: {g_0}")
-    approx_list.append(g_0)
-
-    for t in range(time_steps):
-        # g_t: Tuple[np.ndarray, np.ndarray] = conv_jit(emp_distr, approx_list[-1])
-        # g_t = proj_func(values=g_t[0], probs=g_t[1], no_of_bins=(t + 1) * 10, state=1)
-        # approx_list.append(g_t)
-        g_t: Tuple[np.ndarray, np.ndarray] = simulate_one_step(
-            reward_distr, approx_list[-1], time_step=t, proj_func=proj_func
-        )
-
-        approx_list.append(g_t)
-
-    return approx_list[-1]
-
-
-@time_it(DEBUG)
-def simulate_one_step(
-    dist1: Tuple[np.ndarray, np.ndarray],
-    dist2: Tuple[np.ndarray, np.ndarray],
-    time_step: int,
-    proj_func: Callable,
-) -> Tuple[np.ndarray, np.ndarray]:
-
-    g_t: Tuple[np.ndarray, np.ndarray] = aggregate_conv_results(DiscreteRV(conv_njit(dist1, dist2)[0], conv_njit(dist1, dist2)[1]))
-    g_t = proj_func(
-        values=g_t[0], probs=g_t[1], no_of_bins=(time_step + 1) * 10, state=1
-    )
-    return g_t
-
-
 def monte_carlo_eval(mdp: MDP, num_trajectories: int=20,
                      trajectory_len: int=-1) -> ReturnDistributionFunction:
     """Monte Carlo Simulation with fixed policy.
@@ -1130,7 +935,10 @@ def monte_carlo_eval_single_trajectory(
     return trajectory
 
 
-def one_step_monte_carlo(mdp: MDP, state: State, trajectory: Trajectory) -> State:
+def one_step_monte_carlo(
+        mdp: MDP,
+        state: State,
+        trajectory: Trajectory) -> State:
     """One step of Monte Carlo Simulation.
 
     Run one monte carlo step, write to trajectory history & return next state.
@@ -1152,8 +960,24 @@ def main():
     from .sample_envs import cyclical_env
     # mdp = cyclical_env.mdp
     # policy = mdp.generate_random_policy()
-    ddp(cyclical_env.mdp, QuantileProjection(10), QuantileProjection(10), quant_projection_algo, cyclical_env.return_distr_fun_est, 1)
+    ddp(
+        cyclical_env.mdp,
+        QuantileProjection(),
+        QuantileProjection(),
+        quant_projection_algo,
+        cyclical_env.return_distr_fun_est,
+        2)
     return None
+
+
+def wasserstein_beta(rv1: DiscreteRV, rv2: DiscreteRV, beta: float=1):
+    common_support: np.ndarray = np.concatenate([rv1.xk, rv2.xk])
+    common_support = np.sort(np.unique(common_support))
+    cdf_rv1: np.ndarray = rv1.cdf(common_support[:-1])
+    cdf_rv2: np.ndarray = rv2.cdf(common_support[:-1])
+    diffs: np.ndarray = np.abs(cdf_rv1 - cdf_rv2)**beta
+    weights = np.diff(common_support)
+    return np.sum(weights * diffs)
 
 
 if __name__ == "__main__":

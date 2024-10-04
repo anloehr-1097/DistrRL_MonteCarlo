@@ -13,3 +13,4 @@ src/__pycache__/*
 *.ipynb
 .vscode/
 .nvim
+src/scrapyard.py
