@@ -266,6 +266,10 @@ class DiscreteRV(RV):
         self.is_sorted: bool = False
         self.size = self.xk.size
 
+    def support(self) -> Tuple[float, float]:
+        """Return support of distribution."""
+        return self.xk[0], self.xk[-1]
+
     def distr(self) -> Tuple[np.ndarray, np.ndarray]:
         """Return distribution as Tuple of numpy arrays."""
         return self.xk, self.pk
@@ -564,7 +568,8 @@ def ddp(
         iteration_num,
         inner_index_set=list(itertools.product(mdp.states, mdp.actions, mdp.states)),
         outer_index_set=mdp.states,
-        previous_estimate=return_distr_function
+        previous_return_estimate=return_distr_function,
+        previous_reward_estimate=mdp.rewards
     )
     # inner_projection.set_params(inner_params)
     # outer_projection.set_params(outer_params)
@@ -596,7 +601,8 @@ def algo_size_fun(
     outer_index_set: List[State],
     inner_size_fun: Callable[[int], PPComponent],
     outer_size_fun: Callable[[int], PPComponent],
-    previous_estimate: Optional[ReturnDistributionFunction]=None,
+    previous_return_estimate: Optional[ReturnDistributionFunction]=None,
+    previous_reward_estimate: Optional[RewardDistributionCollection]=None
         ) -> Tuple[ProjectionParameter, ProjectionParameter]:
     """Apply size functions to num_iteration.
 
@@ -614,6 +620,8 @@ def algo_size_fun(
 
 
 def poly_size_fun(x: int) -> PPComponent: return x**2
+def poly_decay(x: int) -> float: return 1/(x**2)
+def exp_decay(x: int) -> float: return 2**(-x)
 
 
 # iteration -> evaluated size functions as parameters
@@ -621,8 +629,45 @@ quant_projection_algo: Callable[[int, List[Tuple[State, Action, State]], List[St
     functools.partial(
         algo_size_fun, inner_size_fun=poly_size_fun,
         outer_size_fun=poly_size_fun,
-        previous_estimate=None
+        previous_return_estimate=None,
+        previous_reward_estimate=None
     )
+
+
+def algo_cdf_1(
+    iteration_num: int,
+    inner_index_set: List[Tuple[State, Action, State]],
+    previous_reward_estimate: RewardDistributionCollection,
+    mdp: MDP,
+    f_min: Callable[[int], float] = poly_decay,
+        f_max: Callable[[int], float] = exp_decay,
+    ) -> ProjectionParameter:
+    # Algo CDF 1
+
+    min_prob: float
+    max_prob: float
+    min_prob, max_prob = f_min(iteration_num), f_max(iteration_num)
+    for (state, action, next_state) in inner_index_set:
+        prev_rev_est: DiscreteRV = previous_reward_estimate[(state, action, next_state)]  # type: ignore
+        prev_support: np.ndarray = np.asarray(prev_rev_est.support())
+        real_probs: np.ndarray = mdp.rewards[(state, action, next_state)].cdf(prev_support)
+
+        if min_prob > real_probs[0]:
+            # expand support to the left
+            pass
+
+        if max_prob < real_probs[1]:
+            # expand support to the right
+
+
+
+
+
+
+
+
+
+    return ProjectionParameter({})
 
 
 def random_projection(num_samples: int, rv: RV) -> RV:
@@ -693,6 +738,12 @@ def grid_value_projection(rv: RV, projection_param: np.ndarray) -> DiscreteRV:
     return DiscreteRV(xs, pk)
 
 
+def grid_value_algo1():
+    pass
+
+
+def grid_value_algo2():
+    pass
 
 
 def categorical_projection(rv: DiscreteRV,
