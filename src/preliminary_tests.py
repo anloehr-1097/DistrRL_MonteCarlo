@@ -636,29 +636,28 @@ quant_projection_algo: Callable[[int, List[Tuple[State, Action, State]], List[St
 
 
 def make_grid_finer(
-    iter_num: int,
     rv: RV,
-    rv_est: DiscreteRV,
+    rv_est_supp: np.ndarray,
     left_prec: float,
     right_prec: float,
         inter_prec: float,
-        ) -> PPComponent:
+        ) -> np.ndarray:
 
-    prev_support: np.ndarray = np.asarray(rv_est.xk)
-    new_support: np.ndarray = prev_support
-    real_probs: np.ndarray = rv.cdf(prev_support)
+    # prev_support: np.ndarray = np.asarray(rv_est_supp[0])
+    new_support: np.ndarray = rv_est_supp
+    real_probs: np.ndarray = rv.cdf(rv_est_supp)
 
     if left_prec < real_probs[0]:
         # expand support to the left
         new_support = np.concatenate(
-            [np.asarray([prev_support[0] - 2**(rv_est.xk[0])]),
+            [np.asarray([rv_est_supp[0] - 2*(rv_est_supp[0])]),
              new_support]
         )
 
     if (1-right_prec) > real_probs[1]:
         # expand support to the right
         new_support = np.concatenate(
-            [np.asarray([prev_support[0] + 2**(rv_est.xk[-1])]),
+            [np.asarray([rv_est_supp[-1] + 2*(rv_est_supp[-1])]),
              new_support]
         )
 
@@ -679,62 +678,45 @@ def make_grid_finer(
 
 
 def algo_cdf_1(
-    iteration_num: int,
+    # iteration_num: int,
     inner_index_set: List[Tuple[State, Action, State]],
     previous_reward_estimate: RewardDistributionCollection,
     mdp: MDP,
     f_min: Callable[[int], float] = poly_decay,
-    f_max: Callable[[int], float] = exp_decay
+    f_max: Callable[[int], float] = exp_decay,
+    f_inter: Callable[[int], float] = exp_decay
+
         ) -> ProjectionParameter:
     # Algo CDF 1
     min_prob: float
     max_prob: float
-    min_prob, max_prob = f_min(iteration_num), f_max(iteration_num)
+    inter_prob: float
     pp_val: Dict[PPKey, PPComponent] = {}
+    num_iter: int = 1
+    # stopping_criterion: bool = num_iter > 10
 
     for (state, action, next_state) in inner_index_set:
+        num_iter = 1  # reset counter
         prev_rew_est: DiscreteRV = previous_reward_estimate[(state, action, next_state)]  # type: ignore
-        prev_support: np.ndarray = np.asarray(prev_rew_est.support())
-        new_support: np.ndarray = prev_support
-        real_probs: np.ndarray = mdp.rewards[(state, action, next_state)].cdf(prev_support)
 
-        # cur_support: np.ndarray = prev_support
-        if min_prob > real_probs[0]:
-            # expand support to the left
-            new_support = np.concatenate(
-                [np.asarray([prev_support[0] - 2**(iteration_num)]),
-                 new_support]
-            )
-            # cur_support[0] = cur_support[0] - 2**iteration_num
-            # new_support = np.concatenate([cur_support[0], new_support])
+        print(prev_rew_est)
+        grid: np.ndarray = prev_rew_est.xk
 
-        if max_prob < real_probs[1]:
-            new_support = np.concatenate(
-                [np.asarray([prev_support[0] + 2**(iteration_num)]),
-                 new_support]
-            )
-            # expand support to the right
-            # cur_support[1] = cur_support[1] + 2**iteration_num
-            # new_support = np.concatenate([new_support, cur_support[1]])
+        while True:
+            min_prob, max_prob = f_min(num_iter), f_max(num_iter)
+            inter_prob = f_inter(num_iter)
+            grid = make_grid_finer(
+                mdp.rewards[(state, action, next_state)],
+                grid,
+                min_prob,
+                max_prob,
+                inter_prob)
+            num_iter += 1
 
-        # determine where approx to coarse
-        inter_k: List = []
-        cdf_evals: np.ndarray = prev_rew_est.cdf(new_support)
-        cdf_diffs: np.ndarray = np.diff(cdf_evals)
-        new_eval_positions: np.ndarray = cdf_diffs > (1 / (prev_support.size + 2))
-        for i in range(new_eval_positions.size):
-            if new_eval_positions[i]:
-                inter_k.append((new_support[i+1] - new_support[i]) / 2)
+            if num_iter > 5:
+                break
 
-        new_support = np.concatenate([new_support, inter_k])
-        new_support = np.sort(np.unique(new_support))  # yi
-        intermed_points: np.ndarray = (new_support[1:] + new_support[:-1]) / 2
-        # cdf_at_new_support: np.ndarray = mdp.rewards[(state, action, next_state)].cdf(new_support)
-        # new_probs: np.ndarray = np.concatenate([cdf_at_new_support[0], np.diff(cdf_at_new_support)])
-        # new_probs = new_probs / np.sum(new_probs)  # normalization to account for mass lost
-        pp_val[(state, action, next_state)] = np.concatenate(
-            [intermed_points, new_support]
-        )
+        pp_val[(state, action, next_state)] = grid
     return ProjectionParameter(pp_val)
 
 
