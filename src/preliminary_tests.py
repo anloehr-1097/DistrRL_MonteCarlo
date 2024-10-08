@@ -11,6 +11,7 @@ import logging
 import time
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 from dataclasses import dataclass
+from enum import Enum
 import itertools
 import functools
 import numpy as np
@@ -472,7 +473,7 @@ TERMINAL_STATE: State = State(
 
 PPComponent = Union[int, np.float64, np.ndarray]
 PPKey = Union[Tuple[State, Action, State], State]
-
+ParamAlgo = Callable[[int, ReturnDistributionFunction]]
 
 @dataclass
 class ProjectionParameter:
@@ -566,10 +567,11 @@ def ddp(
     outer_params: ProjectionParameter
     # apply inner projection
     inner_params, outer_params = param_algorithm(
-        iteration_num,
+        iteration=iteration_num,
+        return_distr_function=return_distr_function,
+        reward_approx=
         inner_index_set=list(itertools.product(mdp.states, mdp.actions, mdp.states)),
         outer_index_set=mdp.states,
-        previous_return_estimate=return_distr_function,
         previous_reward_estimate=mdp.rewards
     )
     # inner_projection.set_params(inner_params)
@@ -621,9 +623,16 @@ def algo_size_fun(
 
 
 def poly_size_fun(x: int) -> PPComponent: return x**2
+def exp_size_fun(x: int) -> PPComponent: return 2**x
 def poly_decay(x: int) -> float: return 1/(x**2)
-def exp_decay(x: int) -> float: return 2**(-x)
+def exp_decay(x: int) -> float: return 1/2**(x)
 
+
+class SizeFun(Enum):
+    POLY: Callable[[int], PPComponent] = poly_size_fun
+    EXP: Callable[[int], PPComponent] = exp_size_fun
+    POLY_DECAY: Callable[[int], float] = poly_decay
+    EXP_DECAY: Callable[[int], float] = exp_decay
 
 # iteration -> evaluated size functions as parameters
 quant_projection_algo: Callable[[int, List[Tuple[State, Action, State]], List[State]], Tuple[ProjectionParameter, ProjectionParameter]] = \
@@ -682,11 +691,15 @@ def algo_cdf_1(
     inner_index_set: List[Tuple[State, Action, State]],
     previous_reward_estimate: RewardDistributionCollection,
     mdp: MDP,
-    f_min: Callable[[int], float] = poly_decay,
-    f_max: Callable[[int], float] = exp_decay,
-    f_inter: Callable[[int], float] = exp_decay
+    f_min: Callable[[int], float] = SizeFun.POLY_DECAY,
+    f_max: Callable[[int], float] = SizeFun.EXP_DECAY,
+    f_inter: Callable[[int], float] = SizeFun.EXP_DECAY
 
         ) -> ProjectionParameter:
+    """Yield projection parameter for grid proj as inner proj of rewards.
+
+    This is an implementation of A_{inout{CDF}, 1}.
+    """
     # Algo CDF 1
     min_prob: float
     max_prob: float
@@ -718,6 +731,45 @@ def algo_cdf_1(
 
         pp_val[(state, action, next_state)] = grid
     return ProjectionParameter(pp_val)
+
+
+def general_param_algo(
+    return_distr_function: ReturnDistributionFunction,
+    reward_distr_coll: RewardDistributionCollection,
+    mdp: MDP,
+    inner_index_set: List[Tuple[State, Action, State]],
+    outer_index_set: List[State],
+    iteration: int
+        ) -> Tuple[ProjectionParameter, ProjectionParameter]:
+    return ProjectionParameter({}), ProjectionParameter({})
+
+
+def algo_cdf_2():
+    pass
+
+
+def param_algo_with_cdf_algo(
+    iteration: int,
+    return_distr_function: ReturnDistributionFunction,
+    reward_approx: RewardDistributionCollection,
+    mdp: MDP,
+    inner_index_set: List[Tuple[State, Action, State]],
+    outer_index_set: List[State],
+    size_funs: Tuple[Callable, Callable, Callable],
+        ) -> Tuple[ProjectionParameter, ProjectionParameter]:
+
+    inner_param: ProjectionParameter = algo_cdf_1(
+        inner_index_set=inner_index_set,
+        previous_reward_estimate=reward_approx,
+        mdp=mdp,
+        f_min=size_funs[0],
+        f_max=size_funs[1],
+        f_inter=size_funs[2])
+    outer_param: ProjectionParameter = algo_size_fun(
+        iteration, inner_index_set, outer_index_set,
+        *size_funs[:2])[-1]
+
+    return inner_param, outer_param
 
 
 def random_projection(num_samples: int, rv: RV) -> RV:

@@ -49,12 +49,12 @@ class TestQuantileProjection(unittest.TestCase):
         self.return_distr_fun_est_discrete: ReturnDistributionFunction = \
             ReturnDistributionFunction(
                 self.states,
-                [RV(xk=rv1_xk_discrete, pk=pk)]
+                [RV(xk=rv1_xk_discrete, pk=pk)]  # type: ignore
             )
         self.return_distr_fun_est_cont: ReturnDistributionFunction = \
             ReturnDistributionFunction(
                 self.states,
-                [ContinuousRV(sp.norm(loc=0, scale=1))]
+                [ContinuousRV(sp.norm(loc=0, scale=1))]  # type: ignore
             )
 
     def param_algo(self, x: int) -> \
