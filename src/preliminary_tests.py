@@ -635,6 +635,49 @@ quant_projection_algo: Callable[[int, List[Tuple[State, Action, State]], List[St
     )
 
 
+def make_grid_finer(
+    iter_num: int,
+    rv: RV,
+    rv_est: DiscreteRV,
+    left_prec: float,
+    right_prec: float,
+        inter_prec: float,
+        ) -> PPComponent:
+
+    prev_support: np.ndarray = np.asarray(rv_est.xk)
+    new_support: np.ndarray = prev_support
+    real_probs: np.ndarray = rv.cdf(prev_support)
+
+    if left_prec < real_probs[0]:
+        # expand support to the left
+        new_support = np.concatenate(
+            [np.asarray([prev_support[0] - 2**(rv_est.xk[0])]),
+             new_support]
+        )
+
+    if (1-right_prec) > real_probs[1]:
+        # expand support to the right
+        new_support = np.concatenate(
+            [np.asarray([prev_support[0] + 2**(rv_est.xk[-1])]),
+             new_support]
+        )
+
+    # determine where approx to coarse
+    inter_k: List = []
+    cdf_evals: np.ndarray = rv.cdf(new_support)
+    cdf_diffs: np.ndarray = np.diff(cdf_evals)
+    new_eval_positions: np.ndarray = cdf_diffs > inter_prec
+    for i in range(new_eval_positions.size):
+        if new_eval_positions[i]:
+            inter_k.append((new_support[i+1] + new_support[i]) / 2)
+
+    new_support = np.concatenate([new_support, inter_k])
+    new_support = np.sort(np.unique(new_support))  # yi
+    intermed_points: np.ndarray = (new_support[1:] + new_support[:-1]) / 2
+    # return np.concatenate([intermed_points, new_support])
+    return np.concatenate([new_support, intermed_points])
+
+
 def algo_cdf_1(
     iteration_num: int,
     inner_index_set: List[Tuple[State, Action, State]],
@@ -659,7 +702,7 @@ def algo_cdf_1(
         if min_prob > real_probs[0]:
             # expand support to the left
             new_support = np.concatenate(
-                [np.asarray([prev_support[0] - 2**(iteration_num)]), 
+                [np.asarray([prev_support[0] - 2**(iteration_num)]),
                  new_support]
             )
             # cur_support[0] = cur_support[0] - 2**iteration_num
@@ -667,7 +710,7 @@ def algo_cdf_1(
 
         if max_prob < real_probs[1]:
             new_support = np.concatenate(
-                [np.asarray([prev_support[0] + 2**(iteration_num)]), 
+                [np.asarray([prev_support[0] + 2**(iteration_num)]),
                  new_support]
             )
             # expand support to the right
