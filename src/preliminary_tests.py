@@ -473,7 +473,6 @@ TERMINAL_STATE: State = State(
 
 PPComponent = Union[int, np.float64, np.ndarray]
 PPKey = Union[Tuple[State, Action, State], State]
-ParamAlgo = Callable[[int, ReturnDistributionFunction]]
 
 @dataclass
 class ProjectionParameter:
@@ -482,6 +481,18 @@ class ProjectionParameter:
 
     def __getitem__(self, idx: PPKey) -> PPComponent:
         return self.value[idx]
+
+
+# TODO this could be implemented with typing.Protocol
+ParamAlgo = Callable[
+    [int,  # iteration
+     Optional[ReturnDistributionFunction],  # return distribution function est.
+     Optional[RewardDistributionCollection],  # reward distribution coll est.
+     MDP,  # mdp
+     List[Tuple[State, Action, State]],  # inner index set
+     List[State]  # outer index set
+     ],
+    Tuple[ProjectionParameter, ProjectionParameter]]  # proj params
 
 
 class Projection:
@@ -555,7 +566,7 @@ def dbo(mdp: MDP, ret_distr_function: ReturnDistributionFunction,
 def ddp(
     mdp: MDP, inner_projection: Projection,
     outer_projection: Projection,
-    param_algorithm: Callable[..., Tuple[ProjectionParameter, ProjectionParameter]],
+    param_algorithm: ParamAlgo,
     return_distr_function: ReturnDistributionFunction,
         iteration_num: int) -> ReturnDistributionFunction:
     """1 Step of Distributional dynamic programming in iteration iteration_num.
@@ -567,12 +578,12 @@ def ddp(
     outer_params: ProjectionParameter
     # apply inner projection
     inner_params, outer_params = param_algorithm(
-        iteration=iteration_num,
-        return_distr_function=return_distr_function,
-        reward_approx=
-        inner_index_set=list(itertools.product(mdp.states, mdp.actions, mdp.states)),
-        outer_index_set=mdp.states,
-        previous_reward_estimate=mdp.rewards
+        iteration_num,
+        return_distr_function,
+        mdp.rewards,
+        mdp,
+        list(itertools.product(mdp.states, mdp.actions, mdp.states)),
+        mdp.states,  # type: ignore
     )
     # inner_projection.set_params(inner_params)
     # outer_projection.set_params(outer_params)
@@ -635,13 +646,32 @@ class SizeFun(Enum):
     EXP_DECAY: Callable[[int], float] = exp_decay
 
 # iteration -> evaluated size functions as parameters
-quant_projection_algo: Callable[[int, List[Tuple[State, Action, State]], List[State]], Tuple[ProjectionParameter, ProjectionParameter]] = \
-    functools.partial(
-        algo_size_fun, inner_size_fun=poly_size_fun,
+# quant_projection_algo: Callable[[int, List[Tuple[State, Action, State]], List[State]], Tuple[ProjectionParameter, ProjectionParameter]] = \
+#     functools.partial(
+#         algo_size_fun, inner_size_fun=poly_size_fun,
+#         outer_size_fun=poly_size_fun,
+#         previous_return_estimate=None,
+#         previous_reward_estimate=None
+#     )
+
+
+def quant_projection_algo(
+    iteration: int,
+    ret_distr_fun: ReturnDistributionFunction,
+    rew_distr_coll: RewardDistributionCollection,
+    mdp: MDP,
+    inner_index_set: List[Tuple[State, Action, State]],
+    outer_index_set: List[State]
+        ) -> Tuple[ProjectionParameter, ProjectionParameter]:
+
+    return algo_size_fun(
+        iteration_num=iteration,
+        inner_index_set=inner_index_set,
+        outer_index_set=outer_index_set,
+        inner_size_fun=poly_size_fun,
         outer_size_fun=poly_size_fun,
-        previous_return_estimate=None,
-        previous_reward_estimate=None
-    )
+        previous_return_estimate=ret_distr_fun,
+        previous_reward_estimate=rew_distr_coll)
 
 
 def make_grid_finer(
@@ -649,7 +679,7 @@ def make_grid_finer(
     rv_est_supp: np.ndarray,
     left_prec: float,
     right_prec: float,
-        inter_prec: float,
+        inter_prec: float
         ) -> np.ndarray:
 
     # prev_support: np.ndarray = np.asarray(rv_est_supp[0])
@@ -731,18 +761,6 @@ def algo_cdf_1(
 
         pp_val[(state, action, next_state)] = grid
     return ProjectionParameter(pp_val)
-
-
-def general_param_algo(
-    return_distr_function: ReturnDistributionFunction,
-    reward_distr_coll: RewardDistributionCollection,
-    mdp: MDP,
-    inner_index_set: List[Tuple[State, Action, State]],
-    outer_index_set: List[State],
-    iteration: int
-        ) -> Tuple[ProjectionParameter, ProjectionParameter]:
-    return ProjectionParameter({}), ProjectionParameter({})
-
 
 def algo_cdf_2():
     pass

@@ -11,11 +11,13 @@ from src.preliminary_tests import (
     PPComponent,
     ProjectionParameter,
     ReturnDistributionFunction,
+    RewardDistributionCollection,
     State,
     algo_size_fun,
     ddp,
     QuantileProjection,
     quant_projection_algo,
+    MDP
 )
 from src.sample_envs import cyclical_env
 import logging
@@ -64,16 +66,29 @@ class TestDDP(unittest.TestCase):
         def out_size_fun(x: int) -> PPComponent:
             return x**3
 
-        quant_proj_2: Callable[
-            ...,
-            Tuple[ProjectionParameter, ProjectionParameter]] = \
-            functools.partial(
-            algo_size_fun,
-            inner_index_set=self.inner_index_set,
-            outer_index_set=self.outer_index_set,
-            inner_size_fun=in_size_fun,
-            outer_size_fun=out_size_fun
-        )
+        def quant_proj_2(
+            iteration_num: int,
+            ret_distr_fun: ReturnDistributionFunction,
+            rew_distr_coll: RewardDistributionCollection,
+            mdp: MDP,
+            inner_index_set: List[Tuple[State, Action, State]],
+            outer_index_set: List[State]) \
+                -> Tuple[ProjectionParameter, ProjectionParameter]:
+            return algo_size_fun(
+                iteration_num,
+                inner_index_set=self.inner_index_set,
+                outer_index_set=self.outer_index_set,
+                inner_size_fun=in_size_fun,
+                outer_size_fun=out_size_fun
+            )
+        # quant_proj_2: ParamAlgo = \
+        #     functools.partial(
+        #     algo_size_fun,
+        #     inner_index_set=self.inner_index_set,
+        #     outer_index_set=self.outer_index_set,
+        #     inner_size_fun=in_size_fun,
+        #     outer_size_fun=out_size_fun
+        # )
         ret_dist_est: ReturnDistributionFunction = \
             ddp(
                 cyclical_env.mdp,
