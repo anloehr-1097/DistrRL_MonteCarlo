@@ -25,7 +25,7 @@ from .utils import assert_probs_distr
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-DEBUG = False
+DEBUG = True
 MAX_TRAJ_LEN: int = 1000
 TERMINAL: int = -1
 NUMBA_SUPPORT: bool = True
@@ -245,6 +245,13 @@ class ContinuousRV(RV):
     def qf(self, u: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
         """Evaluate QF vectorized."""
         return self.sp_rv_cont.ppf(u)
+
+    def empirical(self, num_samples: int=500) -> DiscreteRV:
+        """Return empirical distribution to continuous RV."""
+
+        samples: np.ndarray = self.sample(num_samples)
+        unique, counts = np.unique(samples, return_counts=True)
+        return DiscreteRV(unique, counts / samples.size)
 
 
 class DiscreteRV(RV):
@@ -486,8 +493,8 @@ class ProjectionParameter:
 # TODO this could be implemented with typing.Protocol
 ParamAlgo = Callable[
     [int,  # iteration
-     Optional[ReturnDistributionFunction],  # return distribution function est.
-     Optional[RewardDistributionCollection],  # reward distribution coll est.
+     ReturnDistributionFunction,  # return distribution function est.
+     RewardDistributionCollection,  # reward distribution coll est.
      MDP,  # mdp
      List[Tuple[State, Action, State]],  # inner index set
      List[State]  # outer index set
@@ -541,6 +548,7 @@ def dbo(mdp: MDP, ret_distr_function: ReturnDistributionFunction,
                 if prob == 0:
                     continue
                 reward_distr = reward_distr_coll[(state, action, next_state)]
+                assert isinstance(reward_distr, DiscreteRV), "For application of the DBO, rewards need to be discrete."
                 if next_state.is_terminal:
                     new_vals.append(reward_distr.xk)
                     new_probs.append(reward_distr.pk * prob)
@@ -585,8 +593,8 @@ def ddp(
         list(itertools.product(mdp.states, mdp.actions, mdp.states)),
         mdp.states,  # type: ignore
     )
-    # inner_projection.set_params(inner_params)
-    # outer_projection.set_params(outer_params)
+
+    if DEBUG: logger.info(f" Inner & outer params: {inner_params, outer_params}")
 
     rewards_distr_coll = RewardDistributionCollection(
         list(mdp.rewards.rewards.keys()),
@@ -668,10 +676,8 @@ def quant_projection_algo(
         iteration_num=iteration,
         inner_index_set=inner_index_set,
         outer_index_set=outer_index_set,
-        inner_size_fun=poly_size_fun,
-        outer_size_fun=poly_size_fun,
-        previous_return_estimate=ret_distr_fun,
-        previous_reward_estimate=rew_distr_coll)
+        inner_size_fun=SizeFun.POLY,
+        outer_size_fun=SizeFun.POLY)
 
 
 def make_grid_finer(
@@ -856,10 +862,6 @@ def grid_value_projection(rv: RV, projection_param: np.ndarray) -> DiscreteRV:
     pk: np.ndarray = np.concatenate([y_evals, np.asarray([1])]) - \
         np.concatenate([np.asarray([0]), y_evals])
     return DiscreteRV(xs, pk)
-
-
-def grid_value_algo1():
-    pass
 
 
 def grid_value_algo2():
@@ -1141,7 +1143,20 @@ def main():
     return None
 
 
-def wasserstein_beta(rv1: DiscreteRV, rv2: DiscreteRV, beta: float=1):
+def wasserstein_beta(
+    rv1: Union[DiscreteRV, ContinuousRV],
+    rv2: Union[DiscreteRV, ContinuousRV],
+        beta: float=1):
+    """Wasserstein beta distance between two distributions.
+
+    Assume that beta-moment exist, not checked here.
+    """
+
+    # if not discrete, make discrete
+    if isinstance(rv1, ContinuousRV):
+        rv1 = rv1.empirical()
+    if isinstance(rv2, ContinuousRV):
+        rv2 = rv2.empirical()
     common_support: np.ndarray = np.concatenate([rv1.xk, rv2.xk])
     common_support = np.sort(np.unique(common_support))
     cdf_rv1: np.ndarray = rv1.cdf(common_support[:-1])
@@ -1149,6 +1164,7 @@ def wasserstein_beta(rv1: DiscreteRV, rv2: DiscreteRV, beta: float=1):
     diffs: np.ndarray = np.abs(cdf_rv1 - cdf_rv2)**beta
     weights = np.diff(common_support)
     return np.sum(weights * diffs)
+
 
 
 if __name__ == "__main__":
