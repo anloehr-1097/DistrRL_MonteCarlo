@@ -41,7 +41,7 @@ class TestBernoulli(unittest.TestCase):
         # compare to unif [0,2]
         unif02 = ContinuousRV(sp.uniform(0, 2))
         w1 = wasserstein_beta(approx[self.env.mdp.states[0]], unif02, 1)
-        logging.info(f"Wasserstein distance between approx and Unif[0,2]: {w1}")
+        logging.info(f"Wasserstein distance between q-q approx and Unif[0,2]: {w1}")
         self.assertTrue(w1 <= 0.1, "Check DDP semantics.")
 
     def test_ddp_semantics_cdf_projection(self):
@@ -61,5 +61,5 @@ class TestBernoulli(unittest.TestCase):
         # compare to unif [0,2]
         unif02 = ContinuousRV(sp.uniform(0, 2))
         w1 = wasserstein_beta(approx[self.env.mdp.states[0]], unif02, 1)
-        logging.info(f"Wasserstein distance between approx and Unif[0,2]: {w1}")
+        logging.info(f"Wasserstein distance between cdf-q approx and Unif[0,2]: {w1}")
         self.assertTrue(w1 <= 0.1, "Check DDP semantics.")
