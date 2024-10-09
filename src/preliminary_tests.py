@@ -779,16 +779,19 @@ def param_algo_with_cdf_algo(
     mdp: MDP,
     inner_index_set: List[Tuple[State, Action, State]],
     outer_index_set: List[State],
-    size_funs: Tuple[Callable, Callable, Callable],
         ) -> Tuple[ProjectionParameter, ProjectionParameter]:
+
+    decay_funs: Tuple[Callable, Callable, Callable] = (SizeFun.POLY_DECAY, SizeFun.EXP_DECAY, SizeFun.EXP_DECAY)
+    size_funs: Tuple[Callable, Callable] = (SizeFun.POLY, SizeFun.EXP)
 
     inner_param: ProjectionParameter = algo_cdf_1(
         inner_index_set=inner_index_set,
         previous_reward_estimate=reward_approx,
         mdp=mdp,
-        f_min=size_funs[0],
-        f_max=size_funs[1],
-        f_inter=size_funs[2])
+        f_min=decay_funs[0],
+        f_max=decay_funs[1],
+        f_inter=decay_funs[2])
+
     outer_param: ProjectionParameter = algo_size_fun(
         iteration, inner_index_set, outer_index_set,
         *size_funs[:2])[-1]

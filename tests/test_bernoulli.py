@@ -4,9 +4,11 @@ import scipy.stats as sp
 from src.sample_envs import bernoulli_env
 from src.preliminary_tests import (
     ContinuousRV,
+    GridValueProjection,
     ReturnDistributionFunction,
     ddp,
     QuantileProjection,
+    param_algo_with_cdf_algo,
     quant_projection_algo,
     wasserstein_beta
 )
@@ -33,6 +35,26 @@ class TestBernoulli(unittest.TestCase):
                          inner_projection=QuantileProjection(),
                          outer_projection=QuantileProjection(),
                          param_algorithm=quant_projection_algo,
+                         return_distr_function=self.env.return_distr_fun_est,
+                         iteration_num=i)
+
+        # compare to unif [0,2]
+        unif02 = ContinuousRV(sp.uniform(0, 2))
+        w1 = wasserstein_beta(approx[self.env.mdp.states[0]], unif02, 1)
+        logging.info(f"Wasserstein distance between approx and Unif[0,2]: {w1}")
+        self.assertTrue(w1 <= 0.1, "Check DDP semantics.")
+
+    def test_ddp_semantics_cdf_projection(self):
+        logging.info("test_ddp_semantics_cdf_projection")
+        approx: ReturnDistributionFunction = self.env.return_distr_fun_est
+        gv_proj: GridValueProjection = GridValueProjection()
+        q_proj: QuantileProjection = QuantileProjection()
+
+        for i in range(1, 10):
+            approx = ddp(mdp=self.env.mdp,
+                         inner_projection=gv_proj,
+                         outer_projection=q_proj,
+                         param_algorithm=param_algo_with_cdf_algo,
                          return_distr_function=self.env.return_distr_fun_est,
                          iteration_num=i)
 
