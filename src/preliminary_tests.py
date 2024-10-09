@@ -7,6 +7,7 @@ TODO: replace every indexing scheme with numerical indexing just based on the
 """
 
 from __future__ import annotations
+from collections import OrderedDict
 import logging
 import time
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
@@ -768,8 +769,85 @@ def algo_cdf_1(
         pp_val[(state, action, next_state)] = grid
     return ProjectionParameter(pp_val)
 
-def algo_cdf_2():
-    pass
+
+def support_find(rv: RV, eps: float=1e-8) -> Tuple[float, float]:
+    """Find support of distribution."""
+
+    if isinstance(rv, DiscreteRV):
+        return rv.xk[0], rv.xk[-1]
+
+    else:
+        r_min: float = 0
+        r_max: float = 0
+        k: int = 1
+
+    # continuous case
+    while True:
+        if rv.cdf(r_min) > (eps / 2):
+            r_min -= 2**k
+
+        if rv.cdf(r_max) < 1 - (eps / 2):
+            r_max += 2**k
+
+        if rv.cdf(r_min) < (eps / 2) and rv.cdf(r_max) > 1 - (eps / 2): break
+        k += 1
+
+    return r_min, r_max
+
+
+def bisect(rv: RV, quantile: float, lower_bound: float, upper_bound: float, precision: float) -> float:
+    """Bisection algorithm for quantile finding."""
+    x: float = (lower_bound + upper_bound) / 2
+    while True:
+        if rv.cdf(x) < quantile:
+            lower_bound = x
+        else:
+            upper_bound = x
+        if np.abs(upper_bound - lower_bound) < precision: break
+    return x
+
+
+def quantile_find(
+    rv: RV,
+    num_iter: int,
+    q_table: OrderedDict[float, float],
+        precision: float=1e-8) -> OrderedDict[float, float]:
+    """Find quantiles of distribution."""
+    if not len(q_table.keys()) >= 2:
+        raise Exception("Quantile table must have at least 2 entries.")
+
+    for i in range(2**(num_iter - 1)):
+        q: float = bisect(
+            rv=rv,
+            quantile=(2*i + 1/(2**num_iter)),
+            lower_bound=(i/(2**(num_iter-1))),
+            upper_bound=((i+1)/(2**(num_iter-1))),
+            precision=precision
+        )
+        q_table[(2*i + 1/(2**num_iter))] = q
+    return q_table
+
+
+def algo_cdf_2(
+    num_iteration: int,
+    inner_index_set: List[Tuple[State, Action, State]],
+    previous_reward_estimate: RewardDistributionCollection,
+    mdp: MDP,
+    precision: float,
+        ) -> ProjectionParameter:
+
+    # TODO probably add q-table collection as argument
+    r_min: float
+    r_max: float
+    pp_val: Dict[PPKey, PPComponent] = {}
+
+    for (state, action, next_state) in inner_index_set:
+        r_min, r_max = support_find(mdp.rewards[(state, action, next_state)], eps=precision)
+        q_table: OrderedDict[float, float] = OrderedDict({0: r_min, 1: r_max})
+        q_table = quantile_find(mdp.rewards[(state, action, next_state)], num_iteration, q_table, precision)
+        grid: np.ndarray = np.asarray(list(q_table.values()))
+        pp_val[(state, action, next_state)] = grid
+    return ProjectionParameter(pp_val)
 
 
 def param_algo_with_cdf_algo(
