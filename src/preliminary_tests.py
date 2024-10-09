@@ -798,13 +798,19 @@ def support_find(rv: RV, eps: float=1e-8) -> Tuple[float, float]:
 def bisect(rv: RV, quantile: float, lower_bound: float, upper_bound: float, precision: float) -> float:
     """Bisection algorithm for quantile finding."""
     x: float = (lower_bound + upper_bound) / 2
+    count: int = 0
     while True:
+        count += 1
         if rv.cdf(x) < quantile:
             lower_bound = x
         else:
             upper_bound = x
-        if np.abs(upper_bound - lower_bound) < precision: break
-    return x
+        if np.abs(upper_bound - lower_bound) < precision: return x
+        elif count > 1000:
+            print("Bisection algorithm did not converge.")
+            return x
+       else:
+        pass
 
 
 def quantile_find(
@@ -1245,7 +1251,6 @@ def wasserstein_beta(
     diffs: np.ndarray = np.abs(cdf_rv1 - cdf_rv2)**beta
     weights = np.diff(common_support)
     return np.sum(weights * diffs)
-
 
 
 if __name__ == "__main__":
