@@ -26,11 +26,12 @@ from .utils import assert_probs_distr
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-DEBUG = True
+DEBUG: bool = False
 MAX_TRAJ_LEN: int = 1000
 TERMINAL: int = -1
 NUMBA_SUPPORT: bool = True
 NUM_PRECISION_DECIMALS: int = 20
+MAX_ITERS: int = 100000
 
 
 @dataclass(frozen=True)
@@ -795,22 +796,37 @@ def support_find(rv: RV, eps: float=1e-8) -> Tuple[float, float]:
     return r_min, r_max
 
 
-def bisect(rv: RV, quantile: float, lower_bound: float, upper_bound: float, precision: float) -> float:
+def bisect_single(quantile: float, rv: RV,  lower_bound: float, upper_bound: float, precision: float, max_iters: int=MAX_ITERS) -> float:
     """Bisection algorithm for quantile finding."""
-    x: float = (lower_bound + upper_bound) / 2
+    x: float
     count: int = 0
     while True:
+        x = (lower_bound + upper_bound) / 2
         count += 1
+        if abs(rv.cdf(x) - quantile) < precision: return x
+
         if rv.cdf(x) < quantile:
             lower_bound = x
-        else:
+
+        elif rv.cdf(x) > quantile:
             upper_bound = x
+
         if np.abs(upper_bound - lower_bound) < precision: return x
-        elif count > 1000:
-            print("Bisection algorithm did not converge.")
+        elif count > MAX_ITERS:
             return x
-       else:
-        pass
+        else:
+            pass
+
+
+# TODO if time permits, also pass array of bounds, see if faster
+def bisect(rv: RV, quantile: Union[float, np.ndarray], lower_bound: float, upper_bound: float, precision: float) -> float:
+    """Bisection algorithm for quantile finding."""
+    bs: Callable[[float], float] = functools.partial(
+        bisect_single,
+        rv=rv, lower_bound=lower_bound,
+        upper_bound=upper_bound,
+        precision=precision)
+    return np.vectorize(bs, excluded={"rv", "lower_bound", "upper_bound", "precision"})(quantile)  # Callable[[np.ndarrayl, np.ndarray]
 
 
 def quantile_find(
@@ -820,17 +836,18 @@ def quantile_find(
         precision: float=1e-8) -> OrderedDict[float, float]:
     """Find quantiles of distribution."""
     if not len(q_table.keys()) >= 2:
+        # TODO raise exception when keys are missing
         raise Exception("Quantile table must have at least 2 entries.")
 
     for i in range(2**(num_iter - 1)):
         q: float = bisect(
             rv=rv,
-            quantile=(2*i + 1/(2**num_iter)),
-            lower_bound=(i/(2**(num_iter-1))),
-            upper_bound=((i+1)/(2**(num_iter-1))),
+            quantile=((2*i + 1)/(2**num_iter)),
+            lower_bound=q_table[(i/(2**(num_iter-1)))],
+            upper_bound=q_table[((i+1)/(2**(num_iter-1)))],
             precision=precision
         )
-        q_table[(2*i + 1/(2**num_iter))] = q
+        q_table[((2*i + 1)/(2**num_iter))] = q
     return q_table
 
 
