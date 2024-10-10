@@ -5,12 +5,14 @@ from typing import Tuple
 import numpy as np
 import scipy.stats as sp
 from src.preliminary_tests import (
+    MDP,
     ContinuousRV,
     quantile_find,
     bisect,
     support_find,
     algo_cdf_2,
 )
+from src.sample_envs import cyclical_env
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -67,4 +69,6 @@ class TestCDFParamAlgos(unittest.TestCase):
         self.assertEqual(q_table, expected, f"Quantile find failed. Expected: {expected}, Got: {q_table}")
 
     def test_algo_2_cdf(self):
+        mdp: MDP = cyclical_env.mdp
+        # TODO 
         pass
