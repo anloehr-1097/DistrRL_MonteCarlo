@@ -4,14 +4,14 @@ import time
 from typing import  List, Optional
 import itertools
 import numpy as np
-from .random_variables import DiscreteRV
+from .random_variables import DiscreteRV, scale
 from .config import DEBUG
+from .nb_fun import conv_njit,  aggregate_conv_results
+from .drl_primitives import MDP, ReturnDistributionFunction, RewardDistributionCollection, ParamAlgo
+from .projections import ProjectionParameter, Projection
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-
-from .drl_primitives import MDP, ReturnDistributionFunction, RewardDistributionCollection, ParamAlgo
-from .projections import ProjectionParameter, Projection
 
 
 ###################################

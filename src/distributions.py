@@ -1,6 +1,6 @@
 # import scipy.stats as sp
 import numpy as np
-from .preliminary_tests import RV
+from .random_variables import RV
 
 
 def emp_normal(mean: float=0, std: float=1, size: int=100) -> RV:
