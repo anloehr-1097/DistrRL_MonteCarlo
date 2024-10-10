@@ -1,6 +1,6 @@
 import unittest
 
-from src.preliminary_tests import monte_carlo_eval
+from src.monte_carlo import monte_carlo_eval
 from src.sample_envs import cyclical_env, bernoulli_env
 
 

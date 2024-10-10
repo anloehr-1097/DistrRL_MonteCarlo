@@ -1,0 +1,3 @@
+NUMBA_SUPPORT: bool = True
+DEBUG: bool = False
+NUM_PRECISION_DECIMALS: int = 20

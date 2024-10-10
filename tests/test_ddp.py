@@ -1,24 +1,25 @@
 """Tests for Distributional Dynamic Programming algo."""
 
 import unittest
-import functools
 import itertools
-from typing import Tuple, Callable, List
-import numpy as np
-from src.preliminary_tests import (
-    DiscreteRV,
+from typing import Tuple, List
+from src.drl_primitives import (
     Action,
     PPComponent,
     ProjectionParameter,
     ReturnDistributionFunction,
     RewardDistributionCollection,
     State,
-    algo_size_fun,
-    ddp,
-    QuantileProjection,
-    quant_projection_algo,
     MDP
 )
+
+from src.projections import (
+    algo_size_fun,
+    QuantileProjection,
+    quant_projection_algo,
+)
+
+from src.ddp import ddp
 from src.sample_envs import cyclical_env
 import logging
 

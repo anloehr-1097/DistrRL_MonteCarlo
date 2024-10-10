@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
-from src.preliminary_tests import DiscreteRV
-from src.preliminary_tests import wasserstein_beta
+from src.random_variables import DiscreteRV
+from src.drl_primitives import wasserstein_beta
 
 
 class TestWassersteinBetaDistance(unittest.TestCase):

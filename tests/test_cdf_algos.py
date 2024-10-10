@@ -4,9 +4,9 @@ from collections import OrderedDict
 from typing import Tuple
 import numpy as np
 import scipy.stats as sp
-from src.preliminary_tests import (
-    MDP,
-    ContinuousRV,
+from src.random_variables import ContinuousRV
+from src.drl_primitives import MDP
+from src.projections import (
     quantile_find,
     bisect,
     support_find,

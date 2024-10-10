@@ -6,17 +6,19 @@ from typing import Iterator, List, Dict, Sequence
 import itertools
 import numpy as np
 import scipy.stats as sp
-from .preliminary_tests import (
-    ContinuousRV,
+from .drl_primitives import (
     State,
     Action,
-    RV,
-    DiscreteRV,
     RewardDistributionCollection,
     ReturnDistributionFunction,
     TransitionKernel,
     Policy,
-    MDP,
+    MDP
+)
+from .random_variables import (
+    ContinuousRV,
+    RV,
+    DiscreteRV,
 )
 from .distributions import emp_normal
 

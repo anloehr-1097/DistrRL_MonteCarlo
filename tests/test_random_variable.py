@@ -6,7 +6,8 @@ import logging
 import numpy as np
 import scipy.stats as sp
 
-from src.preliminary_tests import DiscreteRV, ContinuousRV, aggregate_conv_results
+from src.random_variables import DiscreteRV, ContinuousRV
+from src.nb_fun import aggregate_conv_results
 
 DEBUG: bool = True
 

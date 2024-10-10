@@ -10,15 +10,12 @@ from typing import List, Tuple
 import numpy as np
 import scipy.stats as sp
 
-from src.preliminary_tests import (
-    ContinuousRV,
+from src.random_variables import ContinuousRV, RV
+from src.drl_primitives import State, Action, ReturnDistributionFunction
+from src.projections import (
     PPComponent,
-    State,
-    Action,
     QuantileProjection,
     RandomProjection,
-    RV,
-    ReturnDistributionFunction,
     ProjectionParameter,
     GridValueProjection
 )

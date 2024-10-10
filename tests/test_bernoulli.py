@@ -1,17 +1,20 @@
 import unittest
 import logging
 import scipy.stats as sp
-from src.sample_envs import bernoulli_env
-from src.preliminary_tests import (
-    ContinuousRV,
+
+from src.random_variables import ContinuousRV
+from src.projections import (
     GridValueProjection,
-    ReturnDistributionFunction,
-    ddp,
     QuantileProjection,
     param_algo_with_cdf_algo,
     quant_projection_algo,
+)
+from src.drl_primitives import (
+    ReturnDistributionFunction,
     wasserstein_beta
 )
+from src.ddp import ddp
+from src.sample_envs import bernoulli_env
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -30,7 +33,7 @@ class TestBernoulli(unittest.TestCase):
         logging.info("test_ddp_semantics_quant_projection")
         approx: ReturnDistributionFunction = self.env.return_distr_fun_est
 
-        for i in range(1,10):
+        for i in range(1, 10):
             approx = ddp(mdp=self.env.mdp,
                          inner_projection=QuantileProjection(),
                          outer_projection=QuantileProjection(),
