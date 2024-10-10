@@ -1250,7 +1250,7 @@ def main():
 def wasserstein_beta(
     rv1: Union[DiscreteRV, ContinuousRV],
     rv2: Union[DiscreteRV, ContinuousRV],
-        beta: float=1):
+        beta: float=1) -> float:
     """Wasserstein beta distance between two distributions.
 
     Assume that beta-moment exist, not checked here.
@@ -1267,7 +1267,18 @@ def wasserstein_beta(
     cdf_rv2: np.ndarray = rv2.cdf(common_support[:-1])
     diffs: np.ndarray = np.abs(cdf_rv1 - cdf_rv2)**beta
     weights = np.diff(common_support)
-    return np.sum(weights * diffs)
+    return float(np.sum(weights * diffs))  # type: ignore
+
+
+def extended_metric(metric: Callable[[DiscreteRV, DiscreteRV, float], float],
+                    rv1s: Dict[Tuple[State, Action, State], DiscreteRV],
+                    rv2s: Dict[Tuple[State, Action, State], DiscreteRV],
+                    beta: float=1) -> float:
+    """Extended metric for Wasserstein beta distance."""
+
+    assert rv1s.keys() == rv2s.keys(), "Keys of distributions do not match."
+    metric_evals: np.ndarray = np.asarray([metric(rv1s[key], rv2s[key], beta) for key in rv1s.keys()])  # type of elements: float
+    return np.max(metric_evals)
 
 
 if __name__ == "__main__":
