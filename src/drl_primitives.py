@@ -241,7 +241,7 @@ def wasserstein_beta(
     rv1: Union[DiscreteRV, ContinuousRV],
     rv2: Union[DiscreteRV, ContinuousRV],
     beta: float=1,
-        smallest_nonzero: float = ATOL) -> float:
+        smallest_nonzero: float=ATOL) -> float:
     """Wasserstein beta metric."""
 
     u: np.ndarray = np.linspace(smallest_nonzero, 1 - smallest_nonzero, 100000)
@@ -250,14 +250,6 @@ def wasserstein_beta(
 
     diffs: np.ndarray = np.abs(rv1_qs - rv2_qs)**beta
     return (np.sum(diffs) / u.size)**(1/beta)
-
-
-
-
-
-
-    return 0.0
-
 
 
 def birnb_orl_avg_dist_beta(
@@ -282,7 +274,7 @@ def birnb_orl_avg_dist_beta(
     cdf_rv2: np.ndarray = rv2.cdf(common_support[:-1])
     diffs: np.ndarray = np.abs(cdf_rv1 - cdf_rv2)**beta
     weights = np.diff(common_support)
-    return float(np.sum(weights * diffs))  # type: ignore
+    return float(np.sum(weights * diffs)**(1/beta))  # type: ignore
 
 
 def extended_metric(metric: Callable[[DiscreteRV, DiscreteRV, float], float],
