@@ -10,86 +10,24 @@ from .nb_fun import _sort_njit, _qf_njit, aggregate_conv_results
 class RV:
     """Random variable base class used for subclassing."""
 
-    def __init__(self, xk, pk) -> None:
+    def __init__(self) -> None:
         """Initialize discrete random variable."""
-        assert isinstance(xk, np.ndarray) and isinstance(pk, np.ndarray), \
-            "Not numpy arrays upon creation of RV_Discrete."
-        assert xk.size == pk.size, "Size mismatch in xk and pk."
-
-        self.xk: np.ndarray
-        self.pk: np.ndarray
-
-        # make sure x has unique values
-        self.xk, self.pk = aggregate_conv_results((xk, pk))
-        self.is_sorted: bool = False
-        self.size = self.xk.size
-
-    def distr(self) -> Tuple[np.ndarray, np.ndarray]:
-        """Return distribution as Tuple of numpy arrays."""
-        return self.xk, self.pk
-
-    def get_cdf(self) -> Tuple[np.ndarray, np.ndarray]:
-        self._sort_njit() if NUMBA_SUPPORT else self._sort()
-        return self.xk, np.cumsum(self.pk)
-
-    def _sort(self) -> None:
-        """Sort values and probs."""
-        indices = np.argsort(self.xk)
-        self.xk = self.xk[indices]
-        self.pk = self.pk[indices]
-        self.is_sorted = True
-
-    def _sort_njit(self) -> None:
-        self.xk, self.pk = _sort_njit(self.xk, self.pk)
-        self.is_sorted = True
+        pass
 
     def sample(self, num_samples: int=1) -> np.ndarray:
-        """Sample from distribution.
-
-        So far only allow 1D sampling.
-        """
-        return np.random.choice(self.xk, p=self.pk, size=num_samples)
+        return np.array([])
 
     def __call__(self) -> np.ndarray:
         """Sample from distribution."""
         return self.sample()
 
-    def _cdf_single(self, x: float, accuracy: float = 1e-10) -> float:
-        """Only to be called from cdf method since no sorting."""
-        return np.sum(self.pk[self.xk <= x+accuracy])
-
     def cdf(self, x: Union[np.ndarray, float]) -> np.ndarray:
         """Evaluate CDF."""
-        if not self.is_sorted:
-            self._sort_njit() if NUMBA_SUPPORT else self._sort()
-
-        if isinstance(x, np.ndarray):
-            cdf_evals: np.ndarray = np.zeros(x.size)
-            for i in range(x.size):
-                cdf_evals[i] = self._cdf_single(x[i])
-            return cdf_evals
-
-        # any other numeric literal (int, float)
-        return np.asarray(self._cdf_single(x))
-
-    def qf_single(self, u: float) -> float:
-        """Evaluate quantile function."""
-        if np.isclose(u, 1): return self.xk[-1]
-        elif np.isclose(u, 0): return -np.inf
-        else:
-            if not self.is_sorted:
-                self._sort_njit() if NUMBA_SUPPORT else self._sort()
-            return self.xk[(np.searchsorted(np.round(np.cumsum(self.pk), NUM_PRECISION_DECIMALS), u))]
+        raise NotImplementedError
 
     def qf(self, u: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
         """Evaluate QF vectorized."""
-        if isinstance(u, float):
-            return self.qf_single(u)
-
-        # if NUMBA_SUPPORT:
-        #     return _qf_njit(self.xk, self.pk, u)  # u: np.ndarray
-        else:
-            return np.vectorize(self.qf)(u)
+        raise NotImplementedError
 
 
 class ContinuousRV(RV):
@@ -217,7 +155,7 @@ class DiscreteRV(RV):
         # if NUMBA_SUPPORT:
         #     return _qf_njit(self.xk, self.pk, u)  # u: np.ndarray
         else:
-            return np.vectorize(self.qf)(u)
+            return np.vectorize(self.qf_single)(u)
 
 
 def scale(distr: DiscreteRV, gamma: np.float64) -> DiscreteRV:

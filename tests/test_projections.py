@@ -10,7 +10,7 @@ from typing import List, Tuple
 import numpy as np
 import scipy.stats as sp
 
-from src.random_variables import ContinuousRV, RV
+from src.random_variables import ContinuousRV, DiscreteRV
 from src.drl_primitives import State, Action, ReturnDistributionFunction
 from src.projections import (
     PPComponent,
@@ -46,7 +46,7 @@ class TestQuantileProjection(unittest.TestCase):
         self.return_distr_fun_est_discrete: ReturnDistributionFunction = \
             ReturnDistributionFunction(
                 self.states,
-                [RV(xk=rv1_xk_discrete, pk=pk)]  # type: ignore
+                [DiscreteRV(xk=rv1_xk_discrete, pk=pk)]  # type: ignore
             )
         self.return_distr_fun_est_cont: ReturnDistributionFunction = \
             ReturnDistributionFunction(
@@ -124,7 +124,7 @@ class TestRandomProjection(unittest.TestCase):
         self.outer_proj: RandomProjection = RandomProjection()
         rv1_xk_discrete: np.ndarray = np.arange(1, 11)
         pk: np.ndarray = np.ones(10) / 10
-        self.rv1_discrete = RV(xk=rv1_xk_discrete, pk=pk)
+        self.rv1_discrete = DiscreteRV(xk=rv1_xk_discrete, pk=pk)
         self.rv2_cont = ContinuousRV(sp.norm(loc=0, scale=1))
 
     def test_random_projection(self):
@@ -132,10 +132,10 @@ class TestRandomProjection(unittest.TestCase):
         inner_ppcom: PPComponent = 5
         outer_ppcom: PPComponent = 25
 
-        rv1_proj_inner: RV = self.inner_proj(self.rv1_discrete, inner_ppcom)
-        rv1_proj_outer: RV = self.outer_proj(self.rv1_discrete, outer_ppcom)
-        rv2_proj_inner: RV = self.inner_proj(self.rv2_cont, inner_ppcom)
-        rv2_proj_outer: RV = self.outer_proj(self.rv2_cont, outer_ppcom)
+        rv1_proj_inner: DiscreteRV = self.inner_proj(self.rv1_discrete, inner_ppcom)
+        rv1_proj_outer: DiscreteRV = self.outer_proj(self.rv1_discrete, outer_ppcom)
+        rv2_proj_inner: DiscreteRV = self.inner_proj(self.rv2_cont, inner_ppcom)
+        rv2_proj_outer: DiscreteRV = self.outer_proj(self.rv2_cont, outer_ppcom)
 
         self.assertIsNotNone(rv1_proj_inner, "RV1 disc inner proj is None")
         self.assertIsNotNone(rv1_proj_outer, "RV1 disc outer proj is None")
@@ -148,7 +148,7 @@ class TestGridValueProjection(unittest.TestCase):
 
         rv1_xk_discrete: np.ndarray = np.linspace(0.1, 1, 10)
         pk: np.ndarray = np.ones(10) / 10
-        self.rv1_discrete: RV = RV(xk=rv1_xk_discrete, pk=pk)
+        self.rv1_discrete: DiscreteRV = DiscreteRV(xk=rv1_xk_discrete, pk=pk)
         self.rv2_cont: ContinuousRV = ContinuousRV(sp.uniform(0, 1))
         self.grid_values: np.ndarray = \
             np.array([0.1, 0.2, 0.3, 0.4, 0.9, 0.15, 0.25, 0.35, 0.7])
@@ -156,9 +156,9 @@ class TestGridValueProjection(unittest.TestCase):
 
     def test_grid_value_projection(self):
         logger.info("Test grid value projection")
-        rv1_proj: RV = self.grid_value_proj(self.rv1_discrete,
+        rv1_proj: DiscreteRV = self.grid_value_proj(self.rv1_discrete,
                                             self.grid_values)
-        rv2_proj: RV = self.grid_value_proj(self.rv2_cont,
+        rv2_proj: DiscreteRV = self.grid_value_proj(self.rv2_cont,
                                             self.grid_values)
 
         exp_probs_cont: np.ndarray = np.asarray([0.15, 0.1, 0.1, 0.35, 0.3])

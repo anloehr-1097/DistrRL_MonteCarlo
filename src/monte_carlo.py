@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Dict, List, Tuple
 import numpy as np
-from .random_variables import RV
+from .random_variables import DiscreteRV
 from .drl_primitives import State, Action, ReturnDistributionFunction, MDP
 from .config import DEBUG
 
@@ -58,7 +58,7 @@ def monte_carlo_eval(mdp: MDP, num_trajectories: int=20,
 
     for state in mdp.states:
         # create distribution from trajectory results
-        est_return_distr_fun.distr[state] = RV(
+        est_return_distr_fun.distr[state] = DiscreteRV(
             np.asarray(traj_res_arary[state]),
             np.ones(num_trajectories) / num_trajectories)
     return est_return_distr_fun

@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Dict, Sequence, Tuple, Union, Optional, List, Callable
 import numpy as np
 from .random_variables import DiscreteRV, ContinuousRV, RV
+from .config import ATOL
 
 
 @dataclass(frozen=True)
@@ -239,8 +240,33 @@ ParamAlgo = Callable[
 def wasserstein_beta(
     rv1: Union[DiscreteRV, ContinuousRV],
     rv2: Union[DiscreteRV, ContinuousRV],
+    beta: float=1,
+        smallest_nonzero: float = ATOL) -> float:
+    """Wasserstein beta metric."""
+
+    u: np.ndarray = np.linspace(smallest_nonzero, 1 - smallest_nonzero, 100000)
+    rv1_qs: np.ndarray = rv1.qf(u)  # type: ignore
+    rv2_qs: np.ndarray = rv2.qf(u)  # type: ignore
+
+    diffs: np.ndarray = np.abs(rv1_qs - rv2_qs)**beta
+    return (np.sum(diffs) / u.size)**(1/beta)
+
+
+
+
+
+
+    return 0.0
+
+
+
+def birnb_orl_avg_dist_beta(
+    rv1: Union[DiscreteRV, ContinuousRV],
+    rv2: Union[DiscreteRV, ContinuousRV],
         beta: float=1) -> float:
-    """Wasserstein beta distance between two distributions.
+    """
+    TODO
+    Wasserstein beta distance between two distributions.
 
     Assume that beta-moment exist, not checked here.
     """
