@@ -160,3 +160,41 @@ cyclical_env: SimulationEnv = SimulationEnv(
     cyclical_mdp,
     cyclical_return_distr_estimate
 )
+
+
+# CAUCHY ENVIRONMENT - shares a lot with cyclical env
+cauchy_r_001 = ContinuousRV(scipy_rv_cont=sp.cauchy(loc=-3, scale=0.5))
+cauchy_r_102 = ContinuousRV(scipy_rv_cont=sp.cauchy(loc=5, scale=0.1))
+cauchy_r_200 = ContinuousRV(scipy_rv_cont=sp.cauchy(loc=0, scale=5))
+
+# cauchy_r_001 = ContinuousRV(scipy_rv_cont=sp.norm(loc=-3, scale=np.sqrt(0.5)))
+# cauchy_r_102 = ContinuousRV(scipy_rv_cont=sp.norm(loc=5, scale=np.sqrt(0.1)))
+# cauchy_r_200 = ContinuousRV(scipy_rv_cont=sp.norm(loc=0, scale=np.sqrt(5)))
+#
+cauchy_state_action_state_triples: Iterator = \
+    itertools.product(cyclical_states, cyclical_actions, cyclical_states)
+
+cauchy_state_action_state_triples: Iterator = \
+    itertools.filterfalse(
+        lambda x: cyclical_transition_probs[(x[0], x[1])][x[2].index] == 0,
+        cauchy_state_action_state_triples
+    )
+
+cauchy_rewards: RewardDistributionCollection = RewardDistributionCollection(
+    state_action_state_triples=list(cauchy_state_action_state_triples),
+    distributions=[cauchy_r_001, cauchy_r_102, cauchy_r_200])
+
+
+cauchy_mdp: MDP = MDP(
+    states=cyclical_states,
+    actions=cyclical_actions,
+    rewards=cauchy_rewards,
+    transition_probs=cyclical_transition_probs,
+    gamma=np.float64(0.7)
+    )
+cauchy_mdp.set_policy(cyclical_pi)
+
+cauchy_env: SimulationEnv = SimulationEnv(
+    cauchy_mdp,
+    cyclical_return_distr_estimate
+)

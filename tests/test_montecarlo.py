@@ -11,5 +11,7 @@ class TestMC(unittest.TestCase):
     def test_no_runtime_error(self):
         rdf_cyclical_est = monte_carlo_eval(cyclical_env.mdp, 10, 40)
         rdf_bernoulli_est = monte_carlo_eval(bernoulli_env.mdp, 10, 40)
-        self.assertIsNotNone(rdf_cyclical_est, "Cyclical env return distribution eval failed.")
-        self.assertIsNotNone(rdf_bernoulli_est, "Bernoulli env return distribution eval failed.")
+        self.assertIsNotNone(rdf_cyclical_est,
+                             "Cyclical env return distribution eval failed.")
+        self.assertIsNotNone(rdf_bernoulli_est,
+                             "Bernoulli env return distribution eval failed.")
