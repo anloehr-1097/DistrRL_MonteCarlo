@@ -7,7 +7,6 @@ from .random_variables import DiscreteRV, ContinuousRV, RV
 from .config import ATOL
 
 
-
 @dataclass(frozen=True)
 class State:
     """State representation. Once created, immutable."""
@@ -173,15 +172,15 @@ class MDP:
 
     def __init__(
         self,
-        states: Sequence[State],
-        actions: Sequence[Action],
+        states: List[State],
+        actions: List[Action],
         rewards: RewardDistributionCollection,
         transition_probs: TransitionKernel,
         gamma: np.float64 = np.float64(0.5),
     ):
         """Initialize MDP."""
-        self.states: Sequence[State] = states
-        self.actions: Sequence[Action] = actions
+        self.states: List[State] = states
+        self.actions: List[Action] = actions
         self.state_action_state_triples: List[Tuple[State, Action, State]] = \
             list(itertools.product(states, actions, states))
         self.rewards: RewardDistributionCollection = rewards
@@ -239,15 +238,14 @@ ParamAlgo = Callable[
      ReturnDistributionFunction,  # return distr function estimate. Dim:S
      Optional[RewardDistributionCollection],  # reward distr coll est. Dim: S x A x S
      MDP,  # mdp
-     Sequence[Tuple[State, Action, State]],  # inner index set
-     Sequence[State],  # outer index set
+     List[Tuple[State, Action, State]],  # inner index set
+     List[State],  # outer index set
      ],
     Tuple[ProjectionParameter, ProjectionParameter]]  # proj params
 
 
 def transform_to_param_algo(
         func: Callable[..., Tuple[ProjectionParameter, ProjectionParameter]],
-        *args: Any,
         **kwargs: Any) -> ParamAlgo:
     """Transform function to ParamAlgo."""
     return functools.partial(func, **kwargs)

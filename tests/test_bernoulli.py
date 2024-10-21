@@ -1,6 +1,7 @@
 import unittest
 import logging
 import scipy.stats as sp
+from typing import Type
 
 from src.random_variables import ContinuousRV
 from src.projections import (
@@ -35,8 +36,8 @@ class TestBernoulli(unittest.TestCase):
 
         for i in range(1, 10):
             approx = ddp(mdp=self.env.mdp,
-                         inner_projection=QuantileProjection(),
-                         outer_projection=QuantileProjection(),
+                         inner_projection=QuantileProjection,
+                         outer_projection=QuantileProjection,
                          param_algorithm=quant_projection_algo,
                          return_distr_function=self.env.return_distr_fun_est,
                          reward_distr_coll=None,
@@ -51,8 +52,8 @@ class TestBernoulli(unittest.TestCase):
     def test_ddp_semantics_cdf_projection(self):
         logging.info("test_ddp_semantics_cdf_projection")
         approx: ReturnDistributionFunction = self.env.return_distr_fun_est
-        gv_proj: GridValueProjection = GridValueProjection()
-        q_proj: QuantileProjection = QuantileProjection()
+        gv_proj: Type[GridValueProjection] = GridValueProjection
+        q_proj: Type[QuantileProjection] = QuantileProjection
 
         for i in range(1, 10):
             approx = ddp(mdp=self.env.mdp,

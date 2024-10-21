@@ -1,6 +1,6 @@
 from __future__ import annotations
 import logging
-from typing import List, Optional
+from typing import List, Optional, Type
 import itertools
 import numpy as np
 from .random_variables import DiscreteRV, scale
@@ -70,8 +70,8 @@ def dbo(mdp: MDP, ret_distr_function: ReturnDistributionFunction,
 
 
 def ddp(
-    mdp: MDP, inner_projection: Projection,
-    outer_projection: Projection,
+    mdp: MDP, inner_projection: Type[Projection],
+    outer_projection: Type[Projection],
     param_algorithm: ParamAlgo,
     return_distr_function: ReturnDistributionFunction,
     reward_distr_coll: Optional[RewardDistributionCollection],

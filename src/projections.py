@@ -42,7 +42,8 @@ class Projection:
 class RandomProjection(Projection):
     """Random Projection"""
 
-    def project(self, rv: RV, projection_param: PPComponent) -> DiscreteRV:
+    @classmethod
+    def project(cls, rv: RV, projection_param: PPComponent) -> DiscreteRV:
         assert isinstance(projection_param, int), \
             "Random Projection expects int parameter."
 
@@ -54,20 +55,22 @@ class RandomProjection(Projection):
 class QuantileProjection(Projection):
     """Quantile projection."""
 
-    def project(self, rv: RV, projection_param: PPComponent) -> DiscreteRV:
+    @classmethod
+    def project(cls, rv: RV, projection_param: PPComponent) -> DiscreteRV:
         """Apply quantile projection."""
         assert isinstance(projection_param, int), \
             "Quantile Projection expects int parameter."
         return quantile_projection(rv, projection_param)
 
 
-q_proj: QuantileProjection = QuantileProjection()
+# q_proj: QuantileProjection = QuantileProjection
 
 
 class GridValueProjection(Projection):
     """Grid Value Projection."""
 
-    def project(self, rv: RV, projection_param: PPComponent) -> DiscreteRV:
+    @classmethod
+    def project(cls, rv: RV, projection_param: PPComponent) -> DiscreteRV:
         assert isinstance(projection_param, np.ndarray), \
             "Grid Value Projection expects numpy ndarray parameter."
 
