@@ -91,7 +91,7 @@ def ddp(
         reward_distr_coll if reward_distr_coll else None,
         mdp,
         list(itertools.product(mdp.states, mdp.actions, mdp.states)),
-        mdp.states,  # type: ignore
+        mdp.states,
     )
 
     if DEBUG: logger.info(f" Inner & outer params: {inner_params, outer_params}")

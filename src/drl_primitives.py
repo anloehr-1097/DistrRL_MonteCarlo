@@ -239,8 +239,8 @@ ParamAlgo = Callable[
      ReturnDistributionFunction,  # return distr function estimate. Dim:S
      Optional[RewardDistributionCollection],  # reward distr coll est. Dim: S x A x S
      MDP,  # mdp
-     List[Tuple[State, Action, State]],  # inner index set
-     List[State],  # outer index set
+     Sequence[Tuple[State, Action, State]],  # inner index set
+     Sequence[State],  # outer index set
      ],
     Tuple[ProjectionParameter, ProjectionParameter]]  # proj params
 
@@ -302,4 +302,3 @@ def extended_metric(metric: Callable[[DiscreteRV, DiscreteRV, float], float],
     assert rv1s.keys() == rv2s.keys(), "Keys of distributions do not match."
     metric_evals: np.ndarray = np.asarray([metric(rv1s[key], rv2s[key], beta) for key in rv1s.keys()])  # type of elements: float
     return np.max(metric_evals)
-
