@@ -12,7 +12,9 @@ from .drl_primitives import (
     ProjectionParameter,
     MDP,
     State,
-    Action
+    Action,
+    ParamAlgo,
+    transform_to_param_algo
 )
 
 
@@ -110,10 +112,11 @@ def grid_value_projection(rv: RV, projection_param: np.ndarray) -> DiscreteRV:
     return DiscreteRV(xs, pk)
 
 
+# type ParamAlgo
 def quant_projection_algo(
     iteration: int,
     ret_distr_fun: ReturnDistributionFunction,
-    rew_distr_coll: RewardDistributionCollection,
+    rew_distr_coll: Optional[RewardDistributionCollection],
     mdp: MDP,
     inner_index_set: List[Tuple[State, Action, State]],
     outer_index_set: List[State]
@@ -125,6 +128,32 @@ def quant_projection_algo(
         outer_index_set=outer_index_set,
         inner_size_fun=SizeFun.POLY,
         outer_size_fun=SizeFun.POLY)
+
+
+# type ParamAlgo
+def quant_projection_algo_template(
+    inner_size_fun: Callable[[int], PPComponent],
+    outer_size_fun: Callable[[int], PPComponent],
+    iteration: int,
+    ret_distr_fun: ReturnDistributionFunction,
+    rew_distr_coll: Optional[RewardDistributionCollection],
+    mdp: MDP,
+    inner_index_set: List[Tuple[State, Action, State]],
+    outer_index_set: List[State]
+        ) -> Tuple[ProjectionParameter, ProjectionParameter]:
+
+    return algo_size_fun(
+        iteration_num=iteration,
+        inner_index_set=inner_index_set,
+        outer_index_set=outer_index_set,
+        inner_size_fun=inner_size_fun,
+        outer_size_fun=outer_size_fun)
+
+
+q_proj_poly_poly: ParamAlgo = transform_to_param_algo(
+    quant_projection_algo_template,
+    SizeFun.POLY,
+    SizeFun.POLY)
 
 
 def make_grid_finer(
@@ -172,7 +201,8 @@ def make_grid_finer(
 def algo_cdf_1(
     # iteration_num: int,
     inner_index_set: List[Tuple[State, Action, State]],
-    previous_reward_estimate: RewardDistributionCollection,
+    previous_return_estimate: Optional[ReturnDistributionFunction],
+    previous_reward_estimate: Optional[RewardDistributionCollection],
     mdp: MDP,
     f_min: Callable[[int], float] = SizeFun.POLY_DECAY,
     f_max: Callable[[int], float] = SizeFun.EXP_DECAY,
@@ -321,7 +351,7 @@ def algo_cdf_2(
 def param_algo_with_cdf_algo(
     iteration: int,
     return_distr_function: ReturnDistributionFunction,
-    reward_approx: RewardDistributionCollection,
+    reward_approx: Optional[RewardDistributionCollection],
     mdp: MDP,
     inner_index_set: List[Tuple[State, Action, State]],
     outer_index_set: List[State],
@@ -332,6 +362,7 @@ def param_algo_with_cdf_algo(
 
     inner_param: ProjectionParameter = algo_cdf_1(
         inner_index_set=inner_index_set,
+        previous_return_estimate=None,
         previous_reward_estimate=reward_approx,
         mdp=mdp,
         f_min=decay_funs[0],

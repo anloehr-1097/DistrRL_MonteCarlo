@@ -39,6 +39,7 @@ class TestBernoulli(unittest.TestCase):
                          outer_projection=QuantileProjection(),
                          param_algorithm=quant_projection_algo,
                          return_distr_function=self.env.return_distr_fun_est,
+                         reward_distr_coll=None,
                          iteration_num=i)
 
         # compare to unif [0,2]
@@ -59,6 +60,7 @@ class TestBernoulli(unittest.TestCase):
                          outer_projection=q_proj,
                          param_algorithm=param_algo_with_cdf_algo,
                          return_distr_function=self.env.return_distr_fun_est,
+                         reward_distr_coll=self.env.mdp.rewards,
                          iteration_num=i)
 
         # compare to unif [0,2]

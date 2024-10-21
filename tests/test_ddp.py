@@ -2,7 +2,7 @@
 
 import unittest
 import itertools
-from typing import Tuple, List
+from typing import Tuple, List, Optional
 from src.drl_primitives import (
     Action,
     PPComponent,
@@ -49,7 +49,9 @@ class TestDDP(unittest.TestCase):
                 QuantileProjection(),
                 quant_projection_algo,  # expect output sizes (1,1)
                 cyclical_env.return_distr_fun_est,
-                1)
+                reward_distr_coll=None,
+                iteration_num=1
+                )
         if DEBUG:
             logger.info("DDP one step completed.")
 
@@ -70,7 +72,7 @@ class TestDDP(unittest.TestCase):
         def quant_proj_2(
             iteration_num: int,
             ret_distr_fun: ReturnDistributionFunction,
-            rew_distr_coll: RewardDistributionCollection,
+            rew_distr_coll: Optional[RewardDistributionCollection],
             mdp: MDP,
             inner_index_set: List[Tuple[State, Action, State]],
             outer_index_set: List[State]) \
@@ -97,6 +99,7 @@ class TestDDP(unittest.TestCase):
                 QuantileProjection(),
                 quant_proj_2,
                 cyclical_env.return_distr_fun_est,
+                reward_distr_coll=None,
                 iteration_num=2
             )
 

@@ -74,6 +74,7 @@ def ddp(
     outer_projection: Projection,
     param_algorithm: ParamAlgo,
     return_distr_function: ReturnDistributionFunction,
+    reward_distr_coll: Optional[RewardDistributionCollection],
         iteration_num: int) -> ReturnDistributionFunction:
     """1 Step of Distributional dynamic programming in iteration iteration_num.
 
@@ -86,7 +87,8 @@ def ddp(
     inner_params, outer_params = param_algorithm(
         iteration_num,
         return_distr_function,
-        mdp.rewards,
+        # mdp.rewards,
+        reward_distr_coll if reward_distr_coll else None,
         mdp,
         list(itertools.product(mdp.states, mdp.actions, mdp.states)),
         mdp.states,  # type: ignore

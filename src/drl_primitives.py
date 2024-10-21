@@ -1,8 +1,11 @@
 from dataclasses import dataclass
-from typing import Dict, Sequence, Tuple, Union, Optional, List, Callable
+import functools
+from typing import Dict, Sequence, Tuple, Union, Optional, List, Callable, Any
+import itertools
 import numpy as np
 from .random_variables import DiscreteRV, ContinuousRV, RV
 from .config import ATOL
+
 
 
 @dataclass(frozen=True)
@@ -179,6 +182,8 @@ class MDP:
         """Initialize MDP."""
         self.states: Sequence[State] = states
         self.actions: Sequence[Action] = actions
+        self.state_action_state_triples: List[Tuple[State, Action, State]] = \
+            list(itertools.product(states, actions, states))
         self.rewards: RewardDistributionCollection = rewards
         self.transition_probs: TransitionKernel = transition_probs
         self.current_policy: Optional[Policy] = None
@@ -212,7 +217,10 @@ class MDP:
         return Policy(self.states, self.actions, probs)
 
 
+# Projection parameter component (for state or state-action-state triple)
 PPComponent = Union[int, np.float64, np.ndarray]
+
+# Projection parameter key (either state or state-action-state triple)
 PPKey = Union[Tuple[State, Action, State], State]
 
 
@@ -228,13 +236,21 @@ class ProjectionParameter:
 # TODO this could be implemented with typing.Protocol
 ParamAlgo = Callable[
     [int,  # iteration
-     ReturnDistributionFunction,  # return distribution function est.
-     RewardDistributionCollection,  # reward distribution coll est.
+     ReturnDistributionFunction,  # return distr function estimate. Dim:S
+     Optional[RewardDistributionCollection],  # reward distr coll est. Dim: S x A x S
      MDP,  # mdp
      List[Tuple[State, Action, State]],  # inner index set
-     List[State]  # outer index set
+     List[State],  # outer index set
      ],
     Tuple[ProjectionParameter, ProjectionParameter]]  # proj params
+
+
+def transform_to_param_algo(
+        func: Callable[..., Tuple[ProjectionParameter, ProjectionParameter]],
+        *args: Any,
+        **kwargs: Any) -> ParamAlgo:
+    """Transform function to ParamAlgo."""
+    return functools.partial(func, **kwargs)
 
 
 def wasserstein_beta(
