@@ -245,10 +245,11 @@ ParamAlgo = Callable[
 
 
 def transform_to_param_algo(
-        func: Callable[..., Tuple[ProjectionParameter, ProjectionParameter]],
+    func: Callable[..., Tuple[ProjectionParameter, ProjectionParameter]],
+    *args: Any,
         **kwargs: Any) -> ParamAlgo:
     """Transform function to ParamAlgo."""
-    return functools.partial(func, **kwargs)
+    return functools.partial(func, *args, **kwargs)
 
 
 def wasserstein_beta(

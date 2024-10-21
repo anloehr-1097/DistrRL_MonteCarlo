@@ -2,7 +2,7 @@
 
 import unittest
 import itertools
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Type
 from src.drl_primitives import (
     Action,
     PPComponent,
@@ -45,8 +45,8 @@ class TestDDP(unittest.TestCase):
 
         ret_dist_est: ReturnDistributionFunction = \
             ddp(cyclical_env.mdp,
-                QuantileProjection(),
-                QuantileProjection(),
+                QuantileProjection,
+                QuantileProjection,
                 quant_projection_algo,  # expect output sizes (1,1)
                 cyclical_env.return_distr_fun_est,
                 reward_distr_coll=None,

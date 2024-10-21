@@ -401,3 +401,41 @@ def algo_size_fun(
     }
 
     return ProjectionParameter(inner_params), ProjectionParameter(outer_params)
+
+
+def plain_parameter_algorithm(
+    iteration_num: int,
+    ret_distr_est: ReturnDistributionFunction,
+    rew_distr_est: Optional[RewardDistributionCollection],
+    mdp: MDP,
+    inner_index_set: List[Tuple[State, Action, State]],
+    outer_index_set: List[State],
+    size_fun: Callable[[int], int],  # in paper this is M: N -> N
+    width_of_mesh: Callable[[int], float],
+        z: float) -> ProjectionParameter:
+    """Return Grid value parameter implementing the Plain parameter algorithm.
+
+    Plain Parameter algorith as defind in paper
+    'On Policy Evaluation Algorithms in Distributional Reinforcement Learning'.
+    """
+
+    m: int = size_fun(iteration_num)
+    w: float = width_of_mesh(iteration_num)
+
+    xs: np.ndarray = 2 * np.arange(0, m) - m
+    xs = (xs / (m-1)) * w
+    xs += z
+
+    ys: np.ndarray = 2 * np.arange(1, m+1) - m
+    ys = (ys / (m-1)) * w
+    ys += z
+    grid_value_projection_param: np.ndarray = np.concatenate([xs, ys])
+
+    return ProjectionParameter(
+        {state: grid_value_projection_param for state in inner_index_set}
+    )
+
+
+def qsp() -> ProjectionParameter:
+
+    return ProjectionParameter({})
