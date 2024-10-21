@@ -145,21 +145,32 @@ class TestRandomProjection(unittest.TestCase):
 
 class TestGridValueProjection(unittest.TestCase):
     def setUp(self):
+        """Set up the test environment.
+
+        rv1: Unif([0.1, 1]) discrete with steps of width 0.1.
+        grid values:
+            ys: 0.1 0.2 0.3 0.4 0.9
+            xs: 0.15 0.25 0.35 0.7
+        """
 
         rv1_xk_discrete: np.ndarray = np.linspace(0.1, 1, 10)
         pk: np.ndarray = np.ones(10) / 10
         self.rv1_discrete: DiscreteRV = DiscreteRV(xk=rv1_xk_discrete, pk=pk)
         self.rv2_cont: ContinuousRV = ContinuousRV(sp.uniform(0, 1))
+
+        # TODO deal with numerical inaccuracies leading to CDF(0.7)
+        # eval being wrong in discrete rv test case
         self.grid_values: np.ndarray = \
             np.array([0.1, 0.2, 0.3, 0.4, 0.9, 0.15, 0.25, 0.35, 0.7])
         self.grid_value_proj: GridValueProjection = GridValueProjection()
 
     def test_grid_value_projection(self):
+        """Test the grid value projection."""
         logger.info("Test grid value projection")
         rv1_proj: DiscreteRV = self.grid_value_proj(self.rv1_discrete,
-                                            self.grid_values)
+                                                    self.grid_values)
         rv2_proj: DiscreteRV = self.grid_value_proj(self.rv2_cont,
-                                            self.grid_values)
+                                                    self.grid_values)
 
         exp_probs_cont: np.ndarray = np.asarray([0.15, 0.1, 0.1, 0.35, 0.3])
         exp_probs_disc: np.ndarray = np.asarray([0.1, 0.1, 0.1, 0.4, 0.3])
