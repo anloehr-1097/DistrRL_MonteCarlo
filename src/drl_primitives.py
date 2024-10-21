@@ -244,10 +244,10 @@ def wasserstein_beta(
         smallest_nonzero: float=ATOL) -> float:
     """Wasserstein beta metric."""
 
+    assert beta >= 1, "beta must be greater than or equal to 1."
     u: np.ndarray = np.linspace(smallest_nonzero, 1 - smallest_nonzero, 100000)
     rv1_qs: np.ndarray = rv1.qf(u)  # type: ignore
     rv2_qs: np.ndarray = rv2.qf(u)  # type: ignore
-
     diffs: np.ndarray = np.abs(rv1_qs - rv2_qs)**beta
     return (np.sum(diffs) / u.size)**(1/beta)
 
