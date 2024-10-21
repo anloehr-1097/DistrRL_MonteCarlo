@@ -24,19 +24,18 @@ MAX_ITERS: int = 100000
 class Projection:
     """Projection operator."""
 
-    def __init__(self) -> None:
-        pass
-
-    def project(self, rv: RV, projection_param: PPComponent, *args, **kwargs) -> DiscreteRV:
+    @classmethod
+    def project(cls, rv: RV, projection_param: PPComponent, *args, **kwargs) -> DiscreteRV:
         """Project distribution."""
         raise NotImplementedError("Project method not implemented.")
 
-    def __call__(self, rv: RV, projection_param: PPComponent, *args, **kwargs) -> DiscreteRV:
+    @classmethod
+    def __call__(cls, rv: RV, projection_param: PPComponent, *args, **kwargs) -> DiscreteRV:
         """Apply projection to distribution.
 
         Projection depends on projection parameter component.
         """
-        return self.project(rv, projection_param, *args, **kwargs)
+        return cls.project(rv, projection_param, *args, **kwargs)
 
 
 class RandomProjection(Projection):
@@ -61,6 +60,7 @@ class QuantileProjection(Projection):
         assert isinstance(projection_param, int), \
             "Quantile Projection expects int parameter."
         return quantile_projection(rv, projection_param)
+
 
 
 # q_proj: QuantileProjection = QuantileProjection

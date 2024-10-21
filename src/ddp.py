@@ -98,7 +98,7 @@ def ddp(
 
     rewards_distr_coll = RewardDistributionCollection(
         list(mdp.rewards.rewards.keys()),
-        [inner_projection(mdp.rewards[(s, a, s_bar)], inner_params[(s, a, s_bar)]) for
+        [inner_projection.project(mdp.rewards[(s, a, s_bar)], inner_params[(s, a, s_bar)]) for
          (s, a, s_bar) in
          itertools.product(mdp.states, mdp.actions, mdp.states)
          if mdp.transition_probs[(s, a)][s_bar.index] > 0
@@ -111,7 +111,7 @@ def ddp(
     return_distr_iterate: ReturnDistributionFunction = \
         ReturnDistributionFunction(
             return_distr_function.states,
-            [outer_projection(return_distr_function[s], outer_params[s]) for
+            [outer_projection.project(return_distr_function[s], outer_params[s]) for
                 s in return_distr_function.states]
         )
     return return_distr_iterate

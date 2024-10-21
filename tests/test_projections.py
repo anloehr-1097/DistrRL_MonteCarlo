@@ -5,7 +5,7 @@ random variables.
 import unittest
 import logging
 import itertools
-from typing import List, Tuple
+from typing import List, Tuple, Type
 
 import numpy as np
 import scipy.stats as sp
@@ -38,8 +38,8 @@ class TestQuantileProjection(unittest.TestCase):
         )
         self.outer_index_set: List[State] = self.states
 
-        self.inner_proj: QuantileProjection = QuantileProjection()
-        self.outer_proj: QuantileProjection = QuantileProjection()
+        self.inner_proj: Type[QuantileProjection] = QuantileProjection
+        self.outer_proj: Type[QuantileProjection] = QuantileProjection
         rv1_xk_discrete = np.arange(1, 11)
         pk = np.ones(10) / 10
 
@@ -70,12 +70,12 @@ class TestQuantileProjection(unittest.TestCase):
         outer_param: ProjectionParameter
         inner_param, outer_param = self.param_algo(2)
 
-        rv1_proj = self.inner_proj(
+        rv1_proj = self.inner_proj.project(
             self.return_distr_fun_est_discrete[self.states[0]], inner_param[
                 (self.states[0], self.actions[0], self.states[0])
-                ]
-            )
-        rv2_proj = self.inner_proj(
+            ]
+        )
+        rv2_proj = self.inner_proj.project(
             self.return_distr_fun_est_cont[self.states[0]],
             inner_param[(
                 self.states[0],
@@ -83,16 +83,17 @@ class TestQuantileProjection(unittest.TestCase):
                 self.states[0])
             ]
         )
-        rv3_proj = self.outer_proj(self.return_distr_fun_est_discrete[
-                                       self.states[0]],
-                                   outer_param[self.states[0]])
+        rv3_proj = self.outer_proj.project(self.return_distr_fun_est_discrete[
+                                           self.states[0]],
+                                           outer_param[self.states[0]])
 
-        rv4_proj = self.inner_proj(ContinuousRV(sp.uniform(0, 1)),
-                                   inner_param[
-                                   (self.states[0],
-                                    self.actions[0],
-                                    self.states[0])
-                                   ])
+        rv4_proj = self.inner_proj.project(ContinuousRV(sp.uniform(0, 1)),
+                                           inner_param[
+                                               (self.states[0],
+                                                self.actions[0],
+                                                self.states[0])
+                                               ]
+                                           )
 
         if DEBUG:
             logger.info(f"Inner projection output size: {rv1_proj.size}")
@@ -120,8 +121,8 @@ class TestRandomProjection(unittest.TestCase):
         )
         self.outer_index_set: List[State] = self.states
 
-        self.inner_proj: RandomProjection = RandomProjection()
-        self.outer_proj: RandomProjection = RandomProjection()
+        self.inner_proj: Type[RandomProjection] = RandomProjection
+        self.outer_proj: Type[RandomProjection] = RandomProjection
         rv1_xk_discrete: np.ndarray = np.arange(1, 11)
         pk: np.ndarray = np.ones(10) / 10
         self.rv1_discrete = DiscreteRV(xk=rv1_xk_discrete, pk=pk)
@@ -132,10 +133,14 @@ class TestRandomProjection(unittest.TestCase):
         inner_ppcom: PPComponent = 5
         outer_ppcom: PPComponent = 25
 
-        rv1_proj_inner: DiscreteRV = self.inner_proj(self.rv1_discrete, inner_ppcom)
-        rv1_proj_outer: DiscreteRV = self.outer_proj(self.rv1_discrete, outer_ppcom)
-        rv2_proj_inner: DiscreteRV = self.inner_proj(self.rv2_cont, inner_ppcom)
-        rv2_proj_outer: DiscreteRV = self.outer_proj(self.rv2_cont, outer_ppcom)
+        rv1_proj_inner: DiscreteRV = self.inner_proj.project(
+            self.rv1_discrete, inner_ppcom)
+        rv1_proj_outer: DiscreteRV = self.outer_proj.project(
+            self.rv1_discrete, outer_ppcom)
+        rv2_proj_inner: DiscreteRV = self.inner_proj.project(
+            self.rv2_cont, inner_ppcom)
+        rv2_proj_outer: DiscreteRV = self.outer_proj.project(
+            self.rv2_cont, outer_ppcom)
 
         self.assertIsNotNone(rv1_proj_inner, "RV1 disc inner proj is None")
         self.assertIsNotNone(rv1_proj_outer, "RV1 disc outer proj is None")
@@ -162,15 +167,15 @@ class TestGridValueProjection(unittest.TestCase):
         # eval being wrong in discrete rv test case
         self.grid_values: np.ndarray = \
             np.array([0.1, 0.2, 0.3, 0.4, 0.9, 0.15, 0.25, 0.35, 0.7])
-        self.grid_value_proj: GridValueProjection = GridValueProjection()
+        self.grid_value_proj: Type[GridValueProjection] = GridValueProjection
 
     def test_grid_value_projection(self):
         """Test the grid value projection."""
         logger.info("Test grid value projection")
-        rv1_proj: DiscreteRV = self.grid_value_proj(self.rv1_discrete,
-                                                    self.grid_values)
-        rv2_proj: DiscreteRV = self.grid_value_proj(self.rv2_cont,
-                                                    self.grid_values)
+        rv1_proj: DiscreteRV = self.grid_value_proj.project(self.rv1_discrete,
+                                                            self.grid_values)
+        rv2_proj: DiscreteRV = self.grid_value_proj.project(self.rv2_cont,
+                                                            self.grid_values)
 
         exp_probs_cont: np.ndarray = np.asarray([0.15, 0.1, 0.1, 0.35, 0.3])
         exp_probs_disc: np.ndarray = np.asarray([0.1, 0.1, 0.1, 0.4, 0.3])
