@@ -245,24 +245,29 @@ ParamAlgo = Callable[
      ],
     Tuple[ProjectionParameter, ProjectionParameter]]  # proj params
 
+
+# The inner projection can use the properties of the actual rewards
+# which are available according to assumptions.
 InnerParamAlgo = Callable[
     [int,
-     RewardDistributionCollection,
-     MDP,
-     Sequence[Tuple[State, Action, State]]
+     RewardDistributionCollection,  # MDP rewards
+     RewardDistributionCollection,  # reward distribution estimate
+     MDP,  # mdp
+     Sequence[Tuple[State, Action, State]]  # inner index set
      ],
     ProjectionParameter]
 
-
+# The outer projection can not use the ReturnDistributionFunction
 OuterParamAlgo = Callable[
-    [int,
-     ReturnDistributionFunction,
-     MDP,
-     Sequence[State]
+    [int,  # iteration num
+     ReturnDistributionFunction,  # return distribution function estimate
+     MDP,  # MDP
+     Sequence[State]  # outer index set
      ],
     ProjectionParameter]
 
 OneComponentParamAlgo = Union[InnerParamAlgo, OuterParamAlgo]
+
 
 def wasserstein_beta(
     rv1: Union[DiscreteRV, ContinuousRV],

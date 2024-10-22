@@ -44,7 +44,7 @@ class TestBernoulli(unittest.TestCase):
                          # param_algorithm=quant_projection_algo,
                          param_algorithm=q_proj_poly_poly,
                          return_distr_function=self.env.return_distr_fun_est,
-                         reward_distr_coll=None,
+                         reward_distr_coll=self.env.mdp.rewards,
                          iteration_num=i)
 
         # compare to unif [0,2]

@@ -14,9 +14,13 @@ from src.drl_primitives import (
 )
 
 from src.projections import (
+    QuantileProjection
+)
+
+from src.param_algorithms import (
     algo_size_fun,
-    QuantileProjection,
-    quant_projection_algo,
+    # quant_projection_algo,
+    q_proj_poly_poly
 )
 
 from src.ddp import ddp
@@ -47,9 +51,10 @@ class TestDDP(unittest.TestCase):
             ddp(cyclical_env.mdp,
                 QuantileProjection,
                 QuantileProjection,
-                quant_projection_algo,  # expect output sizes (1,1)
+                # quant_projection_algo,  # expect output sizes (1,1)
+                q_proj_poly_poly,  # expect output sizes (1,1)
                 cyclical_env.return_distr_fun_est,
-                reward_distr_coll=None,
+                reward_distr_coll=cyclical_env.mdp.rewards,
                 iteration_num=1
                 )
         if DEBUG:

@@ -6,7 +6,7 @@ import numpy as np
 import scipy.stats as sp
 from src.random_variables import ContinuousRV
 from src.drl_primitives import MDP
-from src.projections import (
+from src.param_algorithms import (
     quantile_find,
     bisect,
     support_find,
