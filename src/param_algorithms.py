@@ -37,18 +37,19 @@ def combine_to_param_algo(
             ) -> Tuple[ProjectionParameter, ProjectionParameter]:
 
         inner_param: ProjectionParameter = inner_algo(
-            iteration_num,
-            mdp.rewards,
-            reward_distr_coll,
-            mdp,
-            inner_index_set
+            iteration_num=iteration_num,
+            distr_coll=mdp.rewards,
+            distr_coll_estimate=reward_distr_coll,
+            mdp=mdp,
+            index_set=inner_index_set
         )
 
         outer_param: ProjectionParameter = outer_algo(
-            iteration_num,
-            ret_distr_fun,
-            mdp,
-            outer_index_set
+            iteration_num=iteration_num,
+            # None,
+            distr_coll_estimate=ret_distr_fun,
+            mdp=mdp,
+            index_set=outer_index_set
         )
         return inner_param, outer_param
 
@@ -155,11 +156,12 @@ def param_algo_from_size_fun(
 q_proj_poly_poly = combine_to_param_algo(
     transform_to_param_algo(  # type: ignore
         param_algo_from_size_fun,
-        functools.partial(SizeFun.POLY, 2)
+        size_fun=functools.partial(SizeFun.POLY, 2)
     ),
     transform_to_param_algo(
         param_algo_from_size_fun,  # type: ignore
-        functools.partial(SizeFun.POLY, 3)
+        size_fun=functools.partial(SizeFun.POLY, 3),
+        distr_coll=None
     )
 )
 
@@ -214,15 +216,16 @@ def make_grid_finer(
     return np.concatenate([new_support, intermed_points])
 
 
+# after specifying size functions type OneComponentParamAlgo
 def algo_cdf_1(
-    # iteration_num: int,
-    index_set: Sequence[PPKey],
+    iteration_num: int,
     distr_coll: Union[ReturnDistributionFunction, RewardDistributionCollection],
-    distr_coll_est: Union[ReturnDistributionFunction, RewardDistributionCollection],
+    distr_coll_estimate: Union[ReturnDistributionFunction, RewardDistributionCollection],
     mdp: MDP,
-    f_min: Callable[[int], float]=functools.partial(DecayFun.POLY, 2),
-    f_max: Callable[[int], float]=functools.partial(DecayFun.EXP, 3),
-    f_inter: Callable[[int], float]=functools.partial(DecayFun.EXP, 3)
+    index_set: Sequence[PPKey],
+    f_min: Callable[[int], float],
+    f_max: Callable[[int], float],
+    f_inter: Callable[[int], float]
         ) -> ProjectionParameter:
     """Yield projection parameter for grid proj.
     This is an implementation of A_{CDF, 1}.
@@ -236,14 +239,14 @@ def algo_cdf_1(
     # stopping_criterion: bool = num_iter > 10
 
     # check if everything fits together
-    assert index_set == distr_coll_est.index_set,  \
+    assert index_set == distr_coll_estimate.index_set,  \
         "Index set mismatch est. dist coll."
     assert index_set == distr_coll.index_set, \
         "Index set mismatch real dist coll."
 
     for idx in index_set:
         num_iter = 1  # reset counter
-        prev_est: DiscreteRV = distr_coll_est[idx]  # type: ignore
+        prev_est: DiscreteRV = distr_coll_estimate[idx]  # type: ignore
         grid: np.ndarray = prev_est.xk
 
         while True:
@@ -263,10 +266,6 @@ def algo_cdf_1(
         pp_val[idx] = grid
 
     return ProjectionParameter(pp_val)
-
-
-
-
 
 
 def support_find(rv: RV, eps: float=1e-8) -> Tuple[float, float]:
@@ -440,7 +439,8 @@ param_algo_with_cdf_algo: ParamAlgo = combine_to_param_algo(
         f_inter=functools.partial(DecayFun.EXP, 3)),  # type: ignore
     transform_to_param_algo(
         param_algo_from_size_fun,
-        functools.partial(SizeFun.POLY, 2)),  # type: ignore
+        size_fun=functools.partial(SizeFun.POLY, 2),  # type: ignore
+        distr_coll=None)
     )
 
 

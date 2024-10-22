@@ -32,10 +32,12 @@ class TestBernoulli(unittest.TestCase):
 
     def setUp(self):
         self.env = bernoulli_env
+        self.return_distr_fun_1 = self.env.return_distr_fun_est
+        self.return_distr_fun_2 = self.env.return_distr_fun_est
 
     def test_ddp_semantics_quant_projection(self):
         logging.info("test_ddp_semantics_quant_projection")
-        approx: ReturnDistributionFunction = self.env.return_distr_fun_est
+        approx: ReturnDistributionFunction = self.return_distr_fun_1
 
         for i in range(1, 10):
             approx = ddp(mdp=self.env.mdp,
@@ -43,7 +45,7 @@ class TestBernoulli(unittest.TestCase):
                          outer_projection=QuantileProjection,
                          # param_algorithm=quant_projection_algo,
                          param_algorithm=q_proj_poly_poly,
-                         return_distr_function=self.env.return_distr_fun_est,
+                         return_distr_function=approx,
                          reward_distr_coll=self.env.mdp.rewards,
                          iteration_num=i)
 
@@ -55,16 +57,17 @@ class TestBernoulli(unittest.TestCase):
 
     def test_ddp_semantics_cdf_projection(self):
         logging.info("test_ddp_semantics_cdf_projection")
-        approx: ReturnDistributionFunction = self.env.return_distr_fun_est
+        approx: ReturnDistributionFunction = self.return_distr_fun_2
         gv_proj: Type[GridValueProjection] = GridValueProjection
         q_proj: Type[QuantileProjection] = QuantileProjection
+
 
         for i in range(1, 10):
             approx = ddp(mdp=self.env.mdp,
                          inner_projection=gv_proj,
                          outer_projection=q_proj,
                          param_algorithm=param_algo_with_cdf_algo,
-                         return_distr_function=self.env.return_distr_fun_est,
+                         return_distr_function=approx,
                          reward_distr_coll=self.env.mdp.rewards,
                          iteration_num=i)
 

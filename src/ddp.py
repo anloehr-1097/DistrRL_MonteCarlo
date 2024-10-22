@@ -88,9 +88,10 @@ def ddp(
         iteration_num,
         return_distr_function,
         # mdp.rewards,
-        reward_distr_coll if reward_distr_coll else None,
+        reward_distr_coll if reward_distr_coll else mdp.rewards,
         mdp,
-        list(itertools.product(mdp.states, mdp.actions, mdp.states)),
+        mdp.state_action_state_triples,
+        # list(itertools.product(mdp.states, mdp.actions, mdp.states)),
         mdp.states,
     )
 
