@@ -61,7 +61,6 @@ class TestBernoulli(unittest.TestCase):
         gv_proj: Type[GridValueProjection] = GridValueProjection
         q_proj: Type[QuantileProjection] = QuantileProjection
 
-
         for i in range(1, 10):
             approx = ddp(mdp=self.env.mdp,
                          inner_projection=gv_proj,

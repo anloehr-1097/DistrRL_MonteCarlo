@@ -89,23 +89,6 @@ class DecayFun(Enum):
     EXP: Callable[[int, int], float] = exp_decay
 
 
-# # type ParamAlgo
-# def quant_projection_algo(
-#     iteration: int,
-#     ret_distr_fun: ReturnDistributionFunction,
-#     rew_distr_coll: Optional[RewardDistributionCollection],
-#     mdp: MDP,
-#     inner_index_set: List[Tuple[State, Action, State]],
-#     outer_index_set: List[State]
-#         ) -> Tuple[ProjectionParameter, ProjectionParameter]:
-#
-#     return algo_size_fun(
-#         iteration_num=iteration,
-#         inner_index_set=inner_index_set,
-#         outer_index_set=outer_index_set,
-#         inner_size_fun=SizeFun.POLY,
-#         outer_size_fun=SizeFun.POLY)
-
 # type: OneComponentParamAlgo
 def param_algo_from_size_fun(
     size_fun: Callable[[int], int],
@@ -117,39 +100,6 @@ def param_algo_from_size_fun(
         ) -> ProjectionParameter:
     """Return a projection parameter from a size function."""
     return size_fun_broadcast(distr_coll_estimate.index_set, size_fun, iteration_num)
-
-
-# This is not in use I guess
-# # type ParamAlgo
-# def param_algo_2_size_fun_template(
-#     inner_size_fun: Callable[[int], int],
-#     outer_size_fun: Callable[[int], int],
-#     iteration: int,
-#     ret_distr_fun: Optional[ReturnDistributionFunction],
-#     rew_distr_coll: Optional[RewardDistributionCollection],
-#     mdp: Optional[MDP],
-#     inner_index_set: List[Tuple[State, Action, State]],
-#     outer_index_set: List[State]
-#         ) -> Tuple[ProjectionParameter, ProjectionParameter]:
-#     """Return a tuple of projection parameters for the Quantile Projection.
-#
-#     This function is to be used with transform_to_param_algo to produce a
-#     ParamAlgo. The args to specify in the call to transform_to_param_algo are
-#     the inner_size_fun and outer_size_fun.
-#
-#     Example usage:
-#     inner_size_fun = functools.partial(SizeFun.POLY, 2)  n -> n**2
-#     outer_size_fun = functools.partial(SizeFun.EXP, 3)  n -> 3**n
-#     quant_proj_algo = transform_to_param_algo(param_algo_2_size_fun_template,
-#         inner_size_fun, outer_size_fun)
-#     This yields a valid parameter algorithm.
-#     """
-#
-#     inner_param: ProjectionParameter = size_fun_broadcast(
-#         inner_index_set, inner_size_fun, iteration)
-#     outer_param: ProjectionParameter = size_fun_broadcast(
-#         outer_index_set, outer_size_fun, iteration)
-#     return inner_param, outer_param
 
 
 # size funs n->n**2, n->n**3
@@ -444,29 +394,6 @@ param_algo_with_cdf_algo: ParamAlgo = combine_to_param_algo(
     )
 
 
-
-# def param_algo_with_cdf_algo(
-#     iteration: int,
-#     return_distr_function: ReturnDistributionFunction,
-#     reward_approx: Optional[RewardDistributionCollection],
-#     mdp: MDP,
-#     inner_index_set: List[Tuple[State, Action, State]],
-#     outer_index_set: List[State],
-#
-#     
-#     transform_to_param_algo(  # type: ignore
-#         param_algo_from_size_fun,
-#         functools.partial(SizeFun.POLY, 2)
-#     ),
-#     transform_to_param_algo(
-#         param_algo_from_size_fun,  # type: ignore
-#         functools.partial(SizeFun.POLY, 3)
-#     )
-#         )
-
-
-
-
 def algo_size_fun(
     iteration_num: int,
     inner_index_set: List[Tuple[State, Action, State]],
@@ -562,79 +489,3 @@ def plain_parameter_algorithm(
 def qsp() -> ProjectionParameter:
 
     return ProjectionParameter({})
-
-
-
-
-# def algo_cdf_2_old(
-#     num_iteration: int,
-#     inner_index_set: List[Tuple[State, Action, State]],
-#     previous_reward_estimate: RewardDistributionCollection,
-#     mdp: MDP,
-#     precision: float,
-#         ) -> ProjectionParameter:
-#     """Produce projection parameter with A_{CDF, 2}.
-#
-#     Implementation of A_{CDF, 2} in thesis.
-#     """
-#
-#     # TODO probably add q-table collection as argument
-#     r_min: float
-#     r_max: float
-#     pp_val: Dict[PPKey, PPComponent] = {}
-#
-#     for (state, action, next_state) in inner_index_set:
-#         r_min, r_max = support_find(mdp.rewards[(state, action, next_state)], eps=precision)
-#         q_table: OrderedDict[float, float] = OrderedDict({0: r_min, 1: r_max})
-#         q_table = quantile_find(mdp.rewards[(state, action, next_state)], num_iteration, q_table, precision)
-#         grid: np.ndarray = np.asarray(list(q_table.values()))
-#         pp_val[(state, action, next_state)] = grid
-#     return ProjectionParameter(pp_val)
-
-
-
-# def algo_cdf_1_old(
-#     # iteration_num: int,
-#     inner_index_set: List[Tuple[State, Action, State]],
-#     previous_return_estimate: Optional[ReturnDistributionFunction],
-#     previous_reward_estimate: Optional[RewardDistributionCollection],
-#     mdp: MDP,
-#     f_min: Callable[[int], float]=functools.partial(DecayFun.POLY, 2),
-#     f_max: Callable[[int], float]=functools.partial(DecayFun.EXP, 3),
-#     f_inter: Callable[[int], float]=functools.partial(DecayFun.EXP, 3)
-#         ) -> ProjectionParameter:
-#     """Yield projection parameter for grid proj.
-#     This is an implementation of A_{CDF, 1}.
-#     """
-#
-#     # Algo CDF 1
-#     min_prob: float
-#     max_prob: float
-#     inter_prob: float
-#     pp_val: Dict[PPKey, PPComponent] = {}
-#     num_iter: int = 1
-#     # stopping_criterion: bool = num_iter > 10
-#
-#     for (state, action, next_state) in inner_index_set:
-#         num_iter = 1  # reset counter
-#         prev_rew_est: DiscreteRV = previous_reward_estimate[(state, action, next_state)]  # type: ignore
-#
-#         print(prev_rew_est)
-#         grid: np.ndarray = prev_rew_est.xk
-#
-#         while True:
-#             min_prob, max_prob = f_min(num_iter), f_max(num_iter)
-#             inter_prob = f_inter(num_iter)
-#             grid = make_grid_finer(
-#                 mdp.rewards[(state, action, next_state)],
-#                 grid,
-#                 min_prob,
-#                 max_prob,
-#                 inter_prob)
-#             num_iter += 1
-#
-#             if num_iter > 5:
-#                 break
-#
-#         pp_val[(state, action, next_state)] = grid
-#     return ProjectionParameter(pp_val)
