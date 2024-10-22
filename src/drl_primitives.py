@@ -125,6 +125,7 @@ class ReturnDistributionFunction:
                  distributions: Optional[Sequence[DiscreteRV]]) -> None:
         """Initialize collection of categorical distributions."""
         self.states: Sequence[State] = states
+        self.index_set = states
         if distributions:
             self.distr: Dict = {s: distributions[i] for i, s in enumerate(states)}
         else:
@@ -161,6 +162,7 @@ class RewardDistributionCollection:
         self.rewards: Dict[Tuple[State, Action, State], RV] = {
             s: d for s, d in zip(state_action_state_triples, distributions)
         }
+        self.index_set = state_action_state_triples
 
     def __getitem__(self, key: Tuple[State, Action, State]) -> RV:
         """Return RV_Discrete for (state, action, next_state) triple."""
@@ -236,21 +238,31 @@ class ProjectionParameter:
 ParamAlgo = Callable[
     [int,  # iteration
      ReturnDistributionFunction,  # return distr function estimate. Dim:S
-     Optional[RewardDistributionCollection],  # reward distr coll est. Dim: S x A x S
+     RewardDistributionCollection,  # reward distr coll est. Dim: S x A x S
      MDP,  # mdp
      List[Tuple[State, Action, State]],  # inner index set
      List[State],  # outer index set
      ],
     Tuple[ProjectionParameter, ProjectionParameter]]  # proj params
 
+InnerParamAlgo = Callable[
+    [int,
+     RewardDistributionCollection,
+     MDP,
+     Sequence[Tuple[State, Action, State]]
+     ],
+    ProjectionParameter]
 
-def transform_to_param_algo(
-    func: Callable[..., Tuple[ProjectionParameter, ProjectionParameter]],
-    *args: Any,
-        **kwargs: Any) -> ParamAlgo:
-    """Transform function to ParamAlgo."""
-    return functools.partial(func, *args, **kwargs)
 
+OuterParamAlgo = Callable[
+    [int,
+     ReturnDistributionFunction,
+     MDP,
+     Sequence[State]
+     ],
+    ProjectionParameter]
+
+OneComponentParamAlgo = Union[InnerParamAlgo, OuterParamAlgo]
 
 def wasserstein_beta(
     rv1: Union[DiscreteRV, ContinuousRV],

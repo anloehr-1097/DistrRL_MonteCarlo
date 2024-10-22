@@ -7,8 +7,11 @@ from src.random_variables import ContinuousRV
 from src.projections import (
     GridValueProjection,
     QuantileProjection,
+)
+from src.param_algorithms import (
     param_algo_with_cdf_algo,
-    quant_projection_algo,
+    q_proj_poly_poly
+    # quant_projection_algo,
 )
 from src.drl_primitives import (
     ReturnDistributionFunction,
@@ -38,7 +41,8 @@ class TestBernoulli(unittest.TestCase):
             approx = ddp(mdp=self.env.mdp,
                          inner_projection=QuantileProjection,
                          outer_projection=QuantileProjection,
-                         param_algorithm=quant_projection_algo,
+                         # param_algorithm=quant_projection_algo,
+                         param_algorithm=q_proj_poly_poly,
                          return_distr_function=self.env.return_distr_fun_est,
                          reward_distr_coll=None,
                          iteration_num=i)
