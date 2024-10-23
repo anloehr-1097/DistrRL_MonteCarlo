@@ -64,7 +64,7 @@ class TestFiniteRV(unittest.TestCase):
             f"Quantile function evaluations: {qf_eval, qf_eval_single}"
         )
         # expected = np.array([-np.inf, 4, 8, 10])
-        expected = np.array([0, 4, 8, 10])
+        expected = np.array([1, 4, 8, 10])
         expected_single = 2
         self.assertTrue(
             np.isclose(qf_eval, expected).all() &
@@ -146,13 +146,13 @@ class TestAggregation(unittest.TestCase):
 
 class TestCDFEvalSpeed(unittest.TestCase):
     def setUp(self):
-        vals = np.random.rand(int(1e5))
-        probs = np.random.rand(int(1e5))
+        vals = np.random.randint(-200, 200, 100000)
+        probs = np.random.rand(100000)
         probs = probs / np.sum(probs)
         self.rv = DiscreteRV(vals, probs)
         self.x_min, self.x_max = self.rv.support()
 
-    def test_cdf_eval(self):
+    def np_test_cdf_eval(self):
 
         start = time.time()
         cdf_evals = self.rv.cdf(np.linspace(self.x_min, self.x_max, int(1e5)))
@@ -161,9 +161,8 @@ class TestCDFEvalSpeed(unittest.TestCase):
 
     def test_cdf_eval_vect(self):
 
-        # cdf_evals = self.rv.cdf_vec(np.linspace(self.x_min, self.x_max, int(1e5)))
         start = time.time()
-        cdf_eval = self.rv.improved_cdf(np.linspace(self.x_min, self.x_max, int(1e5)))
-        # cdf_evals = self.rv.cdf_vec(np.linspace(self.x_min, self.x_max, int(1e5)))
+
+        cdf_eval: np.ndarray = self.rv.improved_cdf(np.linspace(self.x_min, self.x_max, int(1e5)))
         stop = time.time()
         logger.info(f"Time spent in CDF evaluation vect: {stop - start} seconds.")

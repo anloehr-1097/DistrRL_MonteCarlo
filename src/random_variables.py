@@ -1,4 +1,5 @@
 from __future__ import annotations
+import logging
 from typing import Tuple, Union, Optional
 from numba import njit
 import numpy as np
@@ -8,6 +9,9 @@ from scipy.stats import rv_discrete
 from .config import NUMBA_SUPPORT, NUM_PRECISION_DECIMALS, SCIPY_ACTIVE
 from .nb_fun import _sort_njit, _qf_njit, aggregate_conv_results, cdf_njit
 from .utils import normalize_probs
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 class RV:
@@ -88,8 +92,8 @@ class DiscreteRV(RV):
 
         self.xk: np.ndarray
         self.pk: np.ndarray
-        # self.xk, self.pk = aggregate_conv_results((xk, pk))  # making sure xk has unique values
-        self.xk, self.pk = self.make_unique_atoms(xk, pk)
+        self.xk, self.pk = aggregate_conv_results((xk, pk))  # making sure xk has unique values
+        # self.xk, self.pk = self.make_unique_atoms(xk, pk)
         self.is_sorted: bool = True
         self.size: int = self.xk.size
         # remove later
@@ -161,16 +165,22 @@ class DiscreteRV(RV):
         if self.sp_rv is not None:
             return self.sp_rv.cdf(x)
 
-        if not self.is_sorted:
-            self._sort_njit() if NUMBA_SUPPORT else self._sort()
-
         if isinstance(x, np.ndarray):
-            # return np.vectorize(self._cdf_single)(x)
-            cdf_evals: np.ndarray = np.zeros(x.size)
-            for i in range(x.size):
-                cdf_evals[i] = self._cdf_single(x[i])
-            return cdf_evals
-        # any other numeric literal (int, float)
+            xks: np.ndarray = np.tile(self.xk, (x.size, 1))
+            cond: np.ndarray = xks <= x[:, np.newaxis]
+            pks: np.ndarray = np.tile(self.pk, (x.size, 1))
+            return np.sum(pks * cond, axis=1)
+
+        # if not self.is_sorted:
+        #     self._sort_njit() if NUMBA_SUPPORT else self._sort()
+        #
+        # if isinstance(x, np.ndarray):
+        #     # return np.vectorize(self._cdf_single)(x)
+        #     cdf_evals: np.ndarray = np.zeros(x.size)
+        #     for i in range(x.size):
+        #         cdf_evals[i] = self._cdf_single(x[i])
+        #     return cdf_evals
+        # # any other numeric literal (int, float)
         return np.asarray(self._cdf_single(x))
 
     def cdf_vec(self, x: Union[np.ndarray, float]) -> np.ndarray:
@@ -188,10 +198,12 @@ class DiscreteRV(RV):
     def improved_cdf(self, x: np.ndarray) -> np.ndarray:
         """Pure numpy cdf eval."""
         xks: np.ndarray = np.tile(self.xk, (x.size, 1))
+        logger.info(f"xks created. Shape {xks.shape}")
         cond: np.ndarray = xks <= x[:, np.newaxis]
+        logger.info(f"condition created. Shape {cond.shape}")
         pks: np.ndarray = np.tile(self.pk, (x.size, 1))
+        logger.info(f"pks created. Shape {pks.shape}")
         return np.sum(pks * cond, axis=1)
-
 
     def qf_single(self, u: float) -> float:
         """Evaluate quantile function."""
