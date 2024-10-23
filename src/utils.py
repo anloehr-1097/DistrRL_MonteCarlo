@@ -1,11 +1,23 @@
-
+import logging
 from typing import Callable, Tuple, Union
 import numpy as np
+from numba import njit
 # from src.preliminary_tests import DiscreteRV
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.WARNING)
 
 
 def assert_probs_distr(probs: np.ndarray) -> None:
     assert np.isclose(np.sum(probs), 1), "Probs do not sum to 1."
+
+
+def normalize_probs(probs: np.ndarray) -> np.ndarray:
+    if np.allclose(np.sum(probs), 1, atol=1e-11):
+        return probs
+    logger.warning(f"Probs do sum to {np.sum(probs)}.\
+                   Normalizing to sum to 1.")
+    return probs / np.sum(probs)
 
 
 def dkw_bounds(

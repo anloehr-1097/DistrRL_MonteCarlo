@@ -44,6 +44,8 @@ class RandomProjection(Projection):
         assert isinstance(projection_param, int), \
             "Random Projection expects int parameter."
 
+        assert projection_param > 0, \
+            "Random Projection expects positive int parameter."
         atoms = rv.sample(projection_param)
         weights = np.ones(projection_param) / projection_param
         return DiscreteRV(atoms, weights)
@@ -57,6 +59,8 @@ class QuantileProjection(Projection):
         """Apply quantile projection."""
         assert isinstance(projection_param, int), \
             "Quantile Projection expects int parameter."
+        assert projection_param > 0, \
+            "Quantile Projection expects positive int parameter."
         return quantile_projection(rv, projection_param)
 
 

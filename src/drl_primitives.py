@@ -117,7 +117,10 @@ class TransitionKernel:
 
 
 class ReturnDistributionFunction:
-    """Return Distribution Function to a given policy."""
+    """Return Distribution Function type.
+
+    This class is used for eta in mathcal{P}^{mathcal{S}}.
+    """
 
     # TODO instead of using tuple directly, use RV_Discrete
 

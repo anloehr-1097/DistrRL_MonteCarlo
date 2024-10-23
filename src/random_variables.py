@@ -1,12 +1,13 @@
 from __future__ import annotations
-from typing import Tuple, Union
+from typing import Tuple, Union, Optional
 
 import numpy as np
 from scipy.stats.distributions import rv_frozen
 from scipy.stats import rv_discrete
-from scipy.stats._distn_infrastructure import rv_sample
-from .config import NUMBA_SUPPORT, DEBUG, NUM_PRECISION_DECIMALS
+# from scipy.stats._distn_infrastructure import rv_sample
+from .config import NUMBA_SUPPORT, NUM_PRECISION_DECIMALS, SCIPY_ACTIVE
 from .nb_fun import _sort_njit, _qf_njit, aggregate_conv_results
+from .utils import normalize_probs
 
 
 class RV:
@@ -22,6 +23,9 @@ class RV:
     def __call__(self) -> np.ndarray:
         """Sample from distribution."""
         return self.sample()
+
+    def empirical(self, num_samples: int=50) -> DiscreteRV:
+        raise NotImplementedError
 
     def cdf(self, x: Union[np.ndarray, float]) -> np.ndarray:
         """Evaluate CDF."""
@@ -87,21 +91,27 @@ class DiscreteRV(RV):
         self.xk, self.pk = aggregate_conv_results((xk, pk))  # making sure xk has unique values
         self.is_sorted: bool = False
         self.size: int = self.xk.size
-        self.sp_rv: rv_discrete = rv_discrete(values=(self.xk, self.pk))
+        # remove later
+        self.pk = normalize_probs(self.pk)
+        assert np.allclose(np.sum(self.pk), 1.0, atol=1e-10), "Probs do not sum to 1."
+
+        self.sp_rv: Optional[rv_discrete] = rv_discrete(values=(self.xk, self.pk)) if SCIPY_ACTIVE else None
 
     def support(self) -> Tuple[float, float]:
         """Return support of distribution."""
-        # return self.xk[0], self.xk[-1]
-        return (self.sp_rv.a, self.sp_rv.b)
+        if self.sp_rv is not None:
+            return self.sp_rv.a, self.sp_rv.b
+        return self.xk[0], self.xk[-1]
 
     def distr(self) -> Tuple[np.ndarray, np.ndarray]:
         """Return distribution as Tuple of numpy arrays."""
         return self.xk, self.pk
 
     def get_cdf(self) -> Tuple[np.ndarray, np.ndarray]:
-        # self._sort_njit() if NUMBA_SUPPORT else self._sort()
-        # return self.xk, np.cumsum(self.pk)
-        return (self.sp_rv.xk, self.sp_rv.pk)  # type: ignore
+        if self.sp_rv is not None:
+            return self.sp_rv.xk, self.sp_rv.cdf(self.sp_rv.xk)  # type: ignore
+        self._sort_njit() if NUMBA_SUPPORT else self._sort()
+        return self.xk, np.cumsum(self.pk)
 
     def _sort(self) -> None:
         """Sort values and probs."""
@@ -119,9 +129,9 @@ class DiscreteRV(RV):
 
         So far only allow 1D sampling.
         """
-        # return np.random.choice(self.xk, p=self.pk, size=num_samples)
-        samples: np.ndarray = self.sp_rv.rvs(size=num_samples)  # type: ignore
-        return samples
+        if self.sp_rv is not None:
+            return self.sp_rv.rvs(size=num_samples)  # type: ignore
+        return np.random.choice(self.xk, p=self.pk, size=num_samples)
 
     def __call__(self) -> np.ndarray:
         """Sample from distribution."""
@@ -133,17 +143,19 @@ class DiscreteRV(RV):
 
     def cdf(self, x: Union[np.ndarray, float]) -> np.ndarray:
         """Evaluate CDF."""
-        # if not self.is_sorted:
-        #     self._sort_njit() if NUMBA_SUPPORT else self._sort()
-        # if isinstance(x, np.ndarray):
-        #     cdf_evals: np.ndarray = np.zeros(x.size)
-        #     for i in range(x.size):
-        #         cdf_evals[i] = self._cdf_single(x[i])
-        #     return cdf_evals
-        #
-        # # any other numeric literal (int, float)
-        # return np.asarray(self._cdf_single(x))
-        return self.sp_rv.cdf(x)
+        if self.sp_rv is not None:
+            return self.sp_rv.cdf(x)
+
+        if not self.is_sorted:
+            self._sort_njit() if NUMBA_SUPPORT else self._sort()
+
+        if isinstance(x, np.ndarray):
+            cdf_evals: np.ndarray = np.zeros(x.size)
+            for i in range(x.size):
+                cdf_evals[i] = self._cdf_single(x[i])
+            return cdf_evals
+        # any other numeric literal (int, float)
+        return np.asarray(self._cdf_single(x))
 
     def qf_single(self, u: float) -> float:
         """Evaluate quantile function."""
@@ -156,14 +168,16 @@ class DiscreteRV(RV):
 
     def qf(self, u: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
         """Evaluate QF vectorized."""
-        # if isinstance(u, float):
-        #     return self.qf_single(u)
-        #
-        # # if NUMBA_SUPPORT:
-        # #     return _qf_njit(self.xk, self.pk, u)  # u: np.ndarray
-        # else:
-        #      return np.vectorize(self.qf_single)(u)
-        return self.sp_rv.ppf(u)
+        if self.sp_rv is not None:
+            return self.sp_rv.ppf(u)
+
+        if isinstance(u, float):
+            return self.qf_single(u)
+
+        if NUMBA_SUPPORT:
+            return _qf_njit(self.xk, self.pk, u)  # type: ignore | u: np.ndarray
+        else:
+            return np.vectorize(self.qf_single)(u)
 
 
 def scale(distr: DiscreteRV, gamma: np.float64) -> DiscreteRV:
