@@ -418,32 +418,32 @@ def algo_size_fun(
     return ProjectionParameter(inner_params), ProjectionParameter(outer_params)
 
 
-def param_algo_2_size_fun(
-    inner_size_fun: Callable[[int], int],
-    outer_size_fun: Callable[[int], int],
-    iteration_num: int,
-    ret_distr_est: ReturnDistributionFunction,
-    rew_dist_est: RewardDistributionCollection,
-        mdp: MDP) -> Tuple[ProjectionParameter, ProjectionParameter]:
-    """Return 2 size functions evaluated at iteration_num.
-
-    This is only to be used as input to transform_to_param_algo.
-
-    Exmaple:
-    inner_size_fun = functools.partial(SizeFun.POLY, 2)
-    outer_size_fun = functools.partial(SizeFun.EXP, 3)
-    param_algo = transform_to_param_algo(
-        param_algo_2_size_fun,
-        inner_size_fun,
-        outer_size_fun
-        )
-    """
-    inner_param: ProjectionParameter = size_fun_broadcast(
-        mdp.states, inner_size_fun, iteration_num)
-    outer_param: ProjectionParameter = size_fun_broadcast(
-        mdp.state_action_state_triples, outer_size_fun, iteration_num)
-
-    return (inner_param, outer_param)
+# def param_algo_2_size_fun(
+#     inner_size_fun: Callable[[int], int],
+#     outer_size_fun: Callable[[int], int],
+#     iteration_num: int,
+#     ret_distr_est: ReturnDistributionFunction,
+#     rew_dist_est: RewardDistributionCollection,
+#         mdp: MDP) -> Tuple[ProjectionParameter, ProjectionParameter]:
+#     """Return 2 size functions evaluated at iteration_num.
+#
+#     This is only to be used as input to transform_to_param_algo.
+#
+#     Exmaple:
+#     inner_size_fun = functools.partial(SizeFun.POLY, 2)
+#     outer_size_fun = functools.partial(SizeFun.EXP, 3)
+#     param_algo = transform_to_param_algo(
+#         param_algo_2_size_fun,
+#         inner_size_fun,
+#         outer_size_fun
+#         )
+#     """
+#     inner_param: ProjectionParameter = size_fun_broadcast(
+#         mdp.states, inner_size_fun, iteration_num)
+#     outer_param: ProjectionParameter = size_fun_broadcast(
+#         mdp.state_action_state_triples, outer_size_fun, iteration_num)
+#
+#     return (inner_param, outer_param)
 
 
 def size_fun_broadcast(
