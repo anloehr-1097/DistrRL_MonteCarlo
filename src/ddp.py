@@ -79,6 +79,8 @@ def ddp(
     """1 Step of Distributional dynamic programming in iteration iteration_num.
 
     Carry out one step of distributional dynamic programming.
+
+    # TODO DDP needs to return the reward estimates as well!!
     """
 
     inner_params: ProjectionParameter

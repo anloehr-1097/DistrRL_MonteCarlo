@@ -78,3 +78,14 @@ def conv_njit(
     new_val: np.ndarray = np.add(a[0], b[0][:, None]).flatten()
     probs: np.ndarray = np.multiply(a[1], b[1][:, None]).flatten()
     return new_val, probs
+
+
+@njit
+def cdf_njit(xk: np.ndarray, pk: np.ndarray, x: np.ndarray) -> np.ndarray:
+    """
+    Assume that xk is sorted (ascending order).
+    """
+    ret: np.ndarray = np.zeros(x.size)
+    for i in range(x.size):
+        ret[i] = np.sum(pk[xk <= x[i]])
+    return ret

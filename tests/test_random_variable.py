@@ -2,6 +2,7 @@
 
 import unittest
 import logging
+import time
 
 import numpy as np
 import scipy.stats as sp
@@ -141,3 +142,28 @@ class TestAggregation(unittest.TestCase):
             f"Aggregation failed.\nExpected: {expected_xk, expected_pk}\nGot:\
             {xk_agg, pk_agg}"
         )
+
+
+class TestCDFEvalSpeed(unittest.TestCase):
+    def setUp(self):
+        vals = np.random.rand(int(1e5))
+        probs = np.random.rand(int(1e5))
+        probs = probs / np.sum(probs)
+        self.rv = DiscreteRV(vals, probs)
+        self.x_min, self.x_max = self.rv.support()
+
+    def test_cdf_eval(self):
+
+        start = time.time()
+        cdf_evals = self.rv.cdf(np.linspace(self.x_min, self.x_max, int(1e5)))
+        stop = time.time()
+        logger.info(f"Time spent in CDF evaluation: {stop - start} seconds.")
+
+    def test_cdf_eval_vect(self):
+
+        # cdf_evals = self.rv.cdf_vec(np.linspace(self.x_min, self.x_max, int(1e5)))
+        start = time.time()
+        cdf_eval = self.rv.improved_cdf(np.linspace(self.x_min, self.x_max, int(1e5)))
+        # cdf_evals = self.rv.cdf_vec(np.linspace(self.x_min, self.x_max, int(1e5)))
+        stop = time.time()
+        logger.info(f"Time spent in CDF evaluation vect: {stop - start} seconds.")

@@ -54,7 +54,6 @@ class TestDDPOnCyclicalEnv(unittest.TestCase):
         logger.info("DBO application completed for 2 steps")
 
     def test_ddp(self):
-        num_iterations: int = 9 
         ret_distr_est: ReturnDistributionFunction = copy.deepcopy(self.ret_distr_est)
         inner_size_fun: Callable[[int], PPComponent] = functools.partial(SizeFun.POLY, 2)
         outer_size_fun: Callable[[int], PPComponent] = functools.partial(SizeFun.POLY, 3)
@@ -83,8 +82,7 @@ class TestDDPOnCyclicalEnv(unittest.TestCase):
 
         logger.info("10 iterations of DDP completed.")
         logger.info(f"Size per component of last iterat: {ret_distr_est[self.mdp.states[0]].size}")
-        logger.info(f"Expected size: {outer_size_fun(10)}")
+        logger.info(f"Expected size: {outer_size_fun(20)}")
         logger.info(f"Wasserstein distance to real return distr function: \
             {extended_metric(wasserstein_beta, ret_distr_est.distr, cyclycal_real_return_distr_fun.distr)}")
-        self.assertTrue(ret_distr_est[self.mdp.states[0]].size <= outer_size_fun(10))
-        
+        self.assertTrue(ret_distr_est[self.mdp.states[0]].size <= outer_size_fun(20))

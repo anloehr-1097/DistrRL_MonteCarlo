@@ -1,12 +1,12 @@
 from __future__ import annotations
 from typing import Tuple, Union, Optional
-
+from numba import njit
 import numpy as np
 from scipy.stats.distributions import rv_frozen
 from scipy.stats import rv_discrete
 # from scipy.stats._distn_infrastructure import rv_sample
 from .config import NUMBA_SUPPORT, NUM_PRECISION_DECIMALS, SCIPY_ACTIVE
-from .nb_fun import _sort_njit, _qf_njit, aggregate_conv_results
+from .nb_fun import _sort_njit, _qf_njit, aggregate_conv_results, cdf_njit
 from .utils import normalize_probs
 
 
@@ -88,8 +88,9 @@ class DiscreteRV(RV):
 
         self.xk: np.ndarray
         self.pk: np.ndarray
-        self.xk, self.pk = aggregate_conv_results((xk, pk))  # making sure xk has unique values
-        self.is_sorted: bool = False
+        # self.xk, self.pk = aggregate_conv_results((xk, pk))  # making sure xk has unique values
+        self.xk, self.pk = self.make_unique_atoms(xk, pk)
+        self.is_sorted: bool = True
         self.size: int = self.xk.size
         # remove later
         self.pk = normalize_probs(self.pk)
@@ -106,6 +107,20 @@ class DiscreteRV(RV):
     def distr(self) -> Tuple[np.ndarray, np.ndarray]:
         """Return distribution as Tuple of numpy arrays."""
         return self.xk, self.pk
+
+
+    def make_unique_atoms(self, xk: np.ndarray, pk: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        """Make sure that xk has unique values."""
+
+        unq_atoms, inv_indices = np.unique(xk, return_inverse=True)
+        new_probs = np.zeros(unq_atoms.size)
+        for i in range(xk.size):
+            new_probs[i] = np.sum(pk[inv_indices == i])
+
+        assert np.allclose(np.sum(new_probs), 1.0, atol=1e-10), \
+            "Probs do not sum to 1."
+        return unq_atoms, new_probs
+
 
     def get_cdf(self) -> Tuple[np.ndarray, np.ndarray]:
         if self.sp_rv is not None:
@@ -150,12 +165,33 @@ class DiscreteRV(RV):
             self._sort_njit() if NUMBA_SUPPORT else self._sort()
 
         if isinstance(x, np.ndarray):
+            # return np.vectorize(self._cdf_single)(x)
             cdf_evals: np.ndarray = np.zeros(x.size)
             for i in range(x.size):
                 cdf_evals[i] = self._cdf_single(x[i])
             return cdf_evals
         # any other numeric literal (int, float)
         return np.asarray(self._cdf_single(x))
+
+    def cdf_vec(self, x: Union[np.ndarray, float]) -> np.ndarray:
+        """Evaluate CDF."""
+        if self.sp_rv is not None:
+            return self.sp_rv.cdf(x)
+        if isinstance(x, np.ndarray):
+            if NUMBA_SUPPORT:
+                return cdf_njit(self.xk, self.pk, x)
+            else:
+                return np.vectorize(self._cdf_single)(x)
+        else:
+            return np.asarray(self._cdf_single(x))
+
+    def improved_cdf(self, x: np.ndarray) -> np.ndarray:
+        """Pure numpy cdf eval."""
+        xks: np.ndarray = np.tile(self.xk, (x.size, 1))
+        cond: np.ndarray = xks <= x[:, np.newaxis]
+        pks: np.ndarray = np.tile(self.pk, (x.size, 1))
+        return np.sum(pks * cond, axis=1)
+
 
     def qf_single(self, u: float) -> float:
         """Evaluate quantile function."""
