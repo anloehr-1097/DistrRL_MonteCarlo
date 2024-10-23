@@ -10,7 +10,9 @@ from src.drl_primitives import (
     ReturnDistributionFunction,
     RewardDistributionCollection,
     MDP,
-    ParamAlgo
+    ParamAlgo,
+    extended_metric,
+    wasserstein_beta
 )
 from src.param_algorithms import (
     SizeFun,
@@ -20,7 +22,7 @@ from src.param_algorithms import (
 )
 from src.projections import QuantileProjection, RandomProjection
 from src.random_variables import DiscreteRV
-from src.sample_envs import cyclical_env
+from src.sample_envs import cyclical_env, cyclycal_real_return_distr_fun
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -68,7 +70,7 @@ class TestDDPOnCyclicalEnv(unittest.TestCase):
                 distr_coll=None
             )
         )
-        for i in range(10):
+        for i in range(20):
             ret_distr_est = ddp(
                 self.mdp,
                 QuantileProjection,
@@ -82,4 +84,7 @@ class TestDDPOnCyclicalEnv(unittest.TestCase):
         logger.info("10 iterations of DDP completed.")
         logger.info(f"Size per component of last iterat: {ret_distr_est[self.mdp.states[0]].size}")
         logger.info(f"Expected size: {outer_size_fun(10)}")
+        logger.info(f"Wasserstein distance to real return distr function: \
+            {extended_metric(wasserstein_beta, ret_distr_est.distr, cyclycal_real_return_distr_fun.distr)}")
         self.assertTrue(ret_distr_est[self.mdp.states[0]].size <= outer_size_fun(10))
+        

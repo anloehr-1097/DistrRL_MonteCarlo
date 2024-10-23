@@ -125,7 +125,8 @@ class ReturnDistributionFunction:
     # TODO instead of using tuple directly, use RV_Discrete
 
     def __init__(self, states: Sequence[State],
-                 distributions: Optional[Sequence[DiscreteRV]]) -> None:
+                 # distributions: Optional[Sequence[DiscreteRV]]) -> None:
+                 distributions: Optional[Sequence[RV]]) -> None:
         """Initialize collection of categorical distributions."""
         self.states: Sequence[State] = states
         self.index_set = states
@@ -273,8 +274,8 @@ OneComponentParamAlgo = Union[InnerParamAlgo, OuterParamAlgo]
 
 
 def wasserstein_beta(
-    rv1: Union[DiscreteRV, ContinuousRV],
-    rv2: Union[DiscreteRV, ContinuousRV],
+    rv1: RV,
+    rv2: RV,
     beta: float=1,
         smallest_nonzero: float=ATOL) -> float:
     """Wasserstein beta metric."""
@@ -312,9 +313,9 @@ def birnb_orl_avg_dist_beta(
     return float(np.sum(weights * diffs)**(1/beta))  # type: ignore
 
 
-def extended_metric(metric: Callable[[DiscreteRV, DiscreteRV, float], float],
-                    rv1s: Dict[Tuple[State, Action, State], DiscreteRV],
-                    rv2s: Dict[Tuple[State, Action, State], DiscreteRV],
+def extended_metric(metric: Callable[[RV, RV, float], float],
+                    rv1s: Dict[PPKey, RV],
+                    rv2s: Dict[PPKey, RV],
                     beta: float=1) -> float:
     """Extended metric for Wasserstein beta distance."""
 

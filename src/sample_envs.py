@@ -156,6 +156,15 @@ cyclical_mdp: MDP = MDP(
     )
 cyclical_mdp.set_policy(cyclical_pi)
 
+
+cyclycal_real_return_distr_fun: ReturnDistributionFunction = ReturnDistributionFunction(
+    states=cyclical_states,
+    distributions=[
+        ContinuousRV(sp.norm(loc=0.761, scale=np.sqrt(2.380))),
+        ContinuousRV(sp.norm(loc=5.373, scale=np.sqrt(2.816))),
+        ContinuousRV(sp.norm(loc=0.533, scale=np.sqrt(1.666)))
+    ]
+)
 cyclical_env: SimulationEnv = SimulationEnv(
     cyclical_mdp,
     cyclical_return_distr_estimate
