@@ -161,26 +161,31 @@ class DiscreteRV(RV):
         return np.sum(self.pk[self.xk <= x+accuracy])
 
     def cdf(self, x: Union[np.ndarray, float]) -> np.ndarray:
-        """Evaluate CDF."""
+        """Evaluate CDF.
+
+        The user really has to make sure that this is not called with
+        x and self.xk too large due to space time complexity.
+        """
         if self.sp_rv is not None:
             return self.sp_rv.cdf(x)
 
         if isinstance(x, np.ndarray):
+            gbyte = 1024 ** 3
+            if self.xk.size * x.size * 64 / gbyte > 32:
+                logger.warning(
+                    f"Memory usage of CDF evaluation: \
+                    {self.xk.size * x.size * 64 / gbyte} GB."
+                )
+                cdf_evals: np.ndarray = np.zeros(x.size)
+                for i in range(x.size):
+                    cdf_evals[i] = self._cdf_single(x[i])
+                return cdf_evals
+
+            # else: fits in memory
             xks: np.ndarray = np.tile(self.xk, (x.size, 1))
             cond: np.ndarray = xks <= x[:, np.newaxis]
             pks: np.ndarray = np.tile(self.pk, (x.size, 1))
             return np.sum(pks * cond, axis=1)
-
-        # if not self.is_sorted:
-        #     self._sort_njit() if NUMBA_SUPPORT else self._sort()
-        #
-        # if isinstance(x, np.ndarray):
-        #     # return np.vectorize(self._cdf_single)(x)
-        #     cdf_evals: np.ndarray = np.zeros(x.size)
-        #     for i in range(x.size):
-        #         cdf_evals[i] = self._cdf_single(x[i])
-        #     return cdf_evals
-        # # any other numeric literal (int, float)
         return np.asarray(self._cdf_single(x))
 
     def cdf_vec(self, x: Union[np.ndarray, float]) -> np.ndarray:
