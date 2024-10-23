@@ -198,11 +198,8 @@ class DiscreteRV(RV):
     def improved_cdf(self, x: np.ndarray) -> np.ndarray:
         """Pure numpy cdf eval."""
         xks: np.ndarray = np.tile(self.xk, (x.size, 1))
-        logger.info(f"xks created. Shape {xks.shape}")
         cond: np.ndarray = xks <= x[:, np.newaxis]
-        logger.info(f"condition created. Shape {cond.shape}")
         pks: np.ndarray = np.tile(self.pk, (x.size, 1))
-        logger.info(f"pks created. Shape {pks.shape}")
         return np.sum(pks * cond, axis=1)
 
     def qf_single(self, u: float) -> float:
@@ -214,18 +211,41 @@ class DiscreteRV(RV):
                 self._sort_njit() if NUMBA_SUPPORT else self._sort()
             return self.xk[(np.searchsorted(np.round(np.cumsum(self.pk), NUM_PRECISION_DECIMALS), u))]
 
+    def _qf_vec(self, u: np.ndarray) -> np.ndarray:
+        """Evaluate QF vectorized."""
+        x_min: float
+        x_max: float
+        x_min, x_max = self.support()
+        sz: int = u.size
+        qs: np.ndarray = np.zeros(sz)
+
+        pk_mat: np.ndarray = np.tile(self.pk, (sz, 1))
+        pk_mat_agg: np.ndarray = np.round(np.cumsum(pk_mat, axis=1), NUM_PRECISION_DECIMALS)
+        insert_positions: np.ndarray = np.zeros(sz, dtype=np.int64)
+        for i in range(sz):
+            insert_positions[i] = np.searchsorted(pk_mat_agg[i, :], u[i])
+
+        # filter out 0 , 1 quantiles
+        insert_positions *= np.invert(np.isclose(u, 0) + np.isclose(u, 1))
+
+        xk_mat: np.ndarray = np.tile(self.xk, (sz, 1))
+        quants: np.ndarray = xk_mat[np.arange(sz)[:, None], insert_positions[:, None]][:, 0]
+        qs += quants * np.invert(np.isclose(u, 0) + np.isclose(u, 1))
+        qs += x_min * np.ones(sz) * np.isclose(u, 0)
+        qs += x_max * np.ones(sz) * np.isclose(u, 1)
+        return qs
+
     def qf(self, u: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
         """Evaluate QF vectorized."""
         if self.sp_rv is not None:
             return self.sp_rv.ppf(u)
 
-        if isinstance(u, float):
-            return self.qf_single(u)
-
-        if NUMBA_SUPPORT:
-            return _qf_njit(self.xk, self.pk, u)  # type: ignore | u: np.ndarray
-        else:
-            return np.vectorize(self.qf_single)(u)
+        if isinstance(u, np.ndarray):
+            if NUMBA_SUPPORT:
+                return _qf_njit(self.xk, self.pk, u)  # type: ignore | u: np.ndarray
+            else:
+                return self._qf_vec(u)
+        return self._qf_vec(np.asarray([u]))[0]
 
 
 def scale(distr: DiscreteRV, gamma: np.float64) -> DiscreteRV:

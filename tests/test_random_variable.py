@@ -72,6 +72,17 @@ class TestFiniteRV(unittest.TestCase):
             f"Quantile function evaluation failed.\nExpected:\
             {expected, expected_single}\nGot: {qf_eval, qf_eval_single}")
 
+    def test_qf_vec(self):
+        qs = np.array([0.0, 0.35, 0.7999, 1.0])
+        qf_eval = self.rv._qf_vec(qs)
+
+        if DEBUG: logger.info(f"Quantile function evaluations vectorized: {qf_eval}")
+        expected = np.array([1, 4, 8, 10])
+        self.assertTrue(
+            np.isclose(qf_eval, expected).all(),
+            f"Quantile function evaluation vectorized failed.\nExpected:\
+            {expected}\nGot: {qf_eval}")
+
     def test_creation_duplicates(self):
         xk = np.array([1, 2, 3, 3, 3, 4, 5])
         pk = np.ones(xk.size)
