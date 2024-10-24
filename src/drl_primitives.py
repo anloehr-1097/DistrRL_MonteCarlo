@@ -328,6 +328,10 @@ def birnb_orl_avg_dist_beta(
     common_support = np.sort(np.unique(common_support))
     cdf_rv1: np.ndarray = rv1.cdf(common_support[:-1])
     cdf_rv2: np.ndarray = rv2.cdf(common_support[:-1])
+
+    if beta == np.inf:
+        return np.max(np.abs(cdf_rv1 - cdf_rv2))
+
     diffs: np.ndarray = np.abs(cdf_rv1 - cdf_rv2)**beta
     weights = np.diff(common_support)
     return float(np.sum(weights * diffs)**(1/beta))  # type: ignore
