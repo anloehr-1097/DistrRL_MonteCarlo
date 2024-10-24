@@ -202,7 +202,14 @@ cauchy_mdp: MDP = MDP(
     gamma=np.float64(0.7)
     )
 cauchy_mdp.set_policy(cyclical_pi)
-
+cauchy_real_return_distr_fun: ReturnDistributionFunction = ReturnDistributionFunction(
+    states=cyclical_states,
+    distributions=[
+        ContinuousRV(sp.cauchy(loc=0.761, scale=4.957)),
+        ContinuousRV(sp.cauchy(loc=5.373, scale=5.852)),
+        ContinuousRV(sp.cauchy(loc=0.533, scale=8.218))
+    ]
+)
 cauchy_env: SimulationEnv = SimulationEnv(
     cauchy_mdp,
     cyclical_return_distr_estimate
