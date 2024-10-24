@@ -1,11 +1,14 @@
 from dataclasses import dataclass
 import functools
+import logging
 from typing import Dict, Sequence, Tuple, Union, Optional, List, Callable, Any
 import itertools
 import numpy as np
 from .random_variables import DiscreteRV, ContinuousRV, RV
 from .config import ATOL
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 @dataclass(frozen=True)
 class State:
@@ -130,12 +133,14 @@ class ReturnDistributionFunction:
         """Initialize collection of categorical distributions."""
         self.states: Sequence[State] = states
         self.index_set = states
-        if distributions:
-            self.distr: Dict = {s: distributions[i] for i, s in enumerate(states)}
-        else:
-            self.distr: Dict = {s: None for s in states}
 
-    def __getitem__(self, state: Union[State, int]) -> DiscreteRV:
+        # accomodate MC method implementation with the followign conditional
+        if distributions:
+            self.distr: Dict[State, RV] = {s: distributions[i] for i, s in enumerate(states)}  # type: ignore
+        else:
+            self.distr: Dict[State, Optional[RV]] = {s: None for s in states}
+
+    def __getitem__(self, state: Union[State, int]) -> Optional[RV]:
         """Return distribution for state."""
         if isinstance(state, int):
             target_state = list(filter(lambda s: s.index == state, self.states))[0]
@@ -146,7 +151,22 @@ class ReturnDistributionFunction:
     def __len__(self) -> int:
         return len(self.states)
 
-    def __setitem__(self, key: int, value: DiscreteRV) -> None:
+    def get_size(self) -> Tuple[Union[int, float], ...]:
+        """Return size of the return distributions."""
+
+        if self.distr[self.states[0]]:
+            return tuple(self.distr[s].size for s in self.states)  # type: ignore
+            # Make sure distributions are actually available
+
+        logger.warning("Calling size on empty distributions.")
+        return tuple(0 for _ in self.states)
+
+
+
+    def get_max_size(self) -> Union[int, float]:
+        return np.max(np.asarray(self.get_size()))
+
+    def __setitem__(self, key: State, value: RV) -> None:
         """Set distribution for state."""
         self.distr[key] = value
 

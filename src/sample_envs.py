@@ -157,7 +157,7 @@ cyclical_mdp: MDP = MDP(
 cyclical_mdp.set_policy(cyclical_pi)
 
 
-cyclycal_real_return_distr_fun: ReturnDistributionFunction = ReturnDistributionFunction(
+cyclical_real_return_distr_fun: ReturnDistributionFunction = ReturnDistributionFunction(
     states=cyclical_states,
     distributions=[
         ContinuousRV(sp.norm(loc=0.761, scale=np.sqrt(2.380))),

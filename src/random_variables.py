@@ -19,6 +19,7 @@ class RV:
 
     def __init__(self) -> None:
         """Initialize discrete random variable."""
+        self.size: int = 0
         pass
 
     def sample(self, num_samples: int=1) -> np.ndarray:
