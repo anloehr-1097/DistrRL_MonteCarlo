@@ -23,6 +23,7 @@ To run the tests, simply run the following command from the root directory.
 ```bash
 python -m unittest
 ```
+*Note: 1 of the tests might fail due to numerical inaccuracies (test_grid_value_projection).*
 
 # Citation
 If you use this code or the results of the paper in your research,
