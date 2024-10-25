@@ -70,8 +70,8 @@ def transform_to_param_algo(
 
 
 # Size functions
-def poly_size_fun(exponent: int, x: int) -> PPComponent: return x**exponent
-def exp_size_fun(base: int, x: int) -> PPComponent: return base**x
+def poly_size_fun(exponent: float, x: int) -> PPComponent: return round(x**exponent)
+def exp_size_fun(base: float, x: int) -> PPComponent: return round(base**x)
 
 
 class SizeFun(Enum):
@@ -80,8 +80,8 @@ class SizeFun(Enum):
 
 
 # Decay functions
-def poly_decay(exponent: int, x: int) -> float: return 1/(x**exponent)
-def exp_decay(base: int, x: int) -> float: return 1/base**(x)
+def poly_decay(exponent: float, x: int) -> float: return 1/(x**exponent)
+def exp_decay(base: float, x: int) -> float: return 1/base**(x)
 
 
 class DecayFun(Enum):
