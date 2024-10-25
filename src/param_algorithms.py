@@ -189,13 +189,16 @@ def algo_cdf_1(
     # stopping_criterion: bool = num_iter > 10
 
     # check if everything fits together
-    assert index_set == distr_coll_estimate.index_set,  \
-        "Index set mismatch est. dist coll."
-    assert index_set == distr_coll.index_set, \
-        "Index set mismatch real dist coll."
+    # handle that some indices are not in estimate if prob of (s,a,bar{s}) = 0
+    # assert index_set == distr_coll_estimate.index_set,  \
+    #     f"Index set mismatch est. dist coll. {index_set} != {distr_coll_estimate.index_set}"
+    # assert index_set == distr_coll.index_set, \
+    #     f"Index set mismatch real dist coll.{index_set} != {distr_coll_estimate.index_set}"
 
     for idx in index_set:
         num_iter = 1  # reset counter
+        if idx not in distr_coll_estimate.index_set:
+            continue
         prev_est: DiscreteRV = distr_coll_estimate[idx]  # type: ignore
         grid: np.ndarray = prev_est.xk
 
@@ -210,7 +213,7 @@ def algo_cdf_1(
                 inter_prob)
             num_iter += 1
 
-            # TODO real stopping criterion
+            # TODO real stopping criterion here
             if num_iter > 5:
                 break
         pp_val[idx] = grid
