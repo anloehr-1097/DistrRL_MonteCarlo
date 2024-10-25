@@ -20,7 +20,6 @@ from .random_variables import (
     RV,
     DiscreteRV,
 )
-from .distributions import emp_normal
 
 EMP_APPROX_SAMPLES = 100
 
