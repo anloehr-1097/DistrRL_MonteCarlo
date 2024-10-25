@@ -323,7 +323,6 @@ def quantile_find(
     return q_table
 
 
-
 def algo_cdf_2(
     num_iteration: int,
     index_set: Sequence[PPKey],
@@ -346,39 +345,12 @@ def algo_cdf_2(
         r_min, r_max = support_find(distr_coll[idx], eps=precision)  # type: ignore
         q_table: OrderedDict[float, float] = OrderedDict({0: r_min, 1: r_max})
         q_table = quantile_find(distr_coll[idx], num_iteration, q_table, precision)  # type: ignore
-        grid: np.ndarray = np.asarray(list(q_table.values()))
+        xs: np.ndarray = np.asarray(q_table.values())[1::2]
+        ys: np.ndarray = np.asarray(q_table.keys())[2:-1:2]
+        # grid: np.ndarray = np.asarray(list(q_table.values()))
+        grid: np.ndarray = np.concatenate([xs, ys])
         pp_val[idx] = grid
     return ProjectionParameter(pp_val)
-
-
-# def param_algo_with_cdf_algo_old(
-#     iteration: int,
-#     return_distr_function: ReturnDistributionFunction,
-#     reward_approx: Optional[RewardDistributionCollection],
-#     mdp: MDP,
-#     inner_index_set: List[Tuple[State, Action, State]],
-#     outer_index_set: List[State],
-#         ) -> Tuple[ProjectionParameter, ProjectionParameter]:
-#
-#     decay_funs: Tuple[Callable, Callable, Callable] = (DecayFun.POLY, DecayFun.EXP, DecayFun.EXP)
-#     size_funs: Tuple[Callable, Callable] = (SizeFun.POLY, SizeFun.EXP)
-#
-#     inner_param: ProjectionParameter = algo_cdf_1(
-#         index_set=inner_index_set,
-#         distr_coll_est=reward_approx,
-#         distr_coll=mdp.rewards,
-#         # previous_return_estimate=None,
-#         # previous_reward_estimate=reward_approx,
-#         mdp=mdp,
-#         f_min=decay_funs[0],
-#         f_max=decay_funs[1],
-#         f_inter=decay_funs[2])
-#
-#     outer_param: ProjectionParameter = algo_size_fun(
-#         iteration, inner_index_set, outer_index_set,
-#         *size_funs[:2])[-1]
-#
-#     return inner_param, outer_param
 
 
 param_algo_with_cdf_algo: ParamAlgo = combine_to_param_algo(
@@ -458,6 +430,11 @@ def plain_parameter_algorithm(
     )
 
 
-def qsp() -> ProjectionParameter:
+def adaptive_ppa() -> ProjectionParameter:
+    # TODO
+    return ProjectionParameter({})
 
+
+def qsp() -> ProjectionParameter:
+    # TODO
     return ProjectionParameter({})
