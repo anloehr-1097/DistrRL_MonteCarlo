@@ -22,7 +22,7 @@ from src.param_algorithms import (
 )
 from src.projections import QuantileProjection, RandomProjection
 from src.random_variables import DiscreteRV
-from src.sample_envs import cyclical_env, cyclycal_real_return_distr_fun
+from src.sample_envs import cyclical_env, cyclical_real_return_distr_fun
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -84,5 +84,5 @@ class TestDDPOnCyclicalEnv(unittest.TestCase):
         logger.info(f"Size per component of last iterat: {ret_distr_est[self.mdp.states[0]].size}")
         logger.info(f"Expected size: {outer_size_fun(20)}")
         logger.info(f"Wasserstein distance to real return distr function: \
-            {extended_metric(wasserstein_beta, ret_distr_est.distr, cyclycal_real_return_distr_fun.distr)}")
+            {extended_metric(wasserstein_beta, ret_distr_est.distr, cyclical_real_return_distr_fun.distr)}")
         self.assertTrue(ret_distr_est[self.mdp.states[0]].size <= outer_size_fun(20))
