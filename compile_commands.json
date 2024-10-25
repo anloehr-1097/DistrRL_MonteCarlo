@@ -1,7 +1,0 @@
-[
-{
-  "directory": "/root/data/master_thesis/build",
-  "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler  -I/usr/local/cuda/include -std=c++17 -x cu -c /root/data/master_thesis/mt.cu -o CMakeFiles/master_thesis.dir/mt.cu.o",
-  "file": "/root/data/master_thesis/mt.cu"
-}
-]

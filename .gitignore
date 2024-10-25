@@ -14,3 +14,10 @@ src/__pycache__/*
 .vscode/
 .nvim
 src/scrapyard.py
+CMakeLists.txt
+compile_commands.json
+interact_mojo.py
+mt.cpp
+mt.cu
+mt_perf.mojo
+py_perf.py
