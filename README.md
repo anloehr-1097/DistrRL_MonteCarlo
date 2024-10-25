@@ -25,6 +25,14 @@ python -m unittest
 ```
 *Note: 1 of the tests might fail due to numerical inaccuracies (test_grid_value_projection).*
 
+# TODOS
+## Extension of the DDP framework
+The extended DDP algorithm should return two estimates in each iteration:
+- One estimate for the return distribution function
+- One estimate for the reward distribution collection
+This is a simple change with the potential change to break the code.
+Thus it is postponed to a later stage.
+
 # Citation
 If you use this code or the results of the paper in your research,
 please cite it as follows:
