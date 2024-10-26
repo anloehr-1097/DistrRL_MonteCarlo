@@ -1,7 +1,6 @@
 from dataclasses import dataclass
-import functools
 import logging
-from typing import Dict, Sequence, Tuple, Union, Optional, List, Callable, Any
+from typing import Dict, Sequence, Tuple, Union, Optional, List, Callable
 import itertools
 import numpy as np
 from .random_variables import DiscreteRV, ContinuousRV, RV
@@ -9,6 +8,7 @@ from .config import ATOL
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
 
 @dataclass(frozen=True)
 class State:
@@ -161,8 +161,6 @@ class ReturnDistributionFunction:
         logger.warning("Calling size on empty distributions.")
         return tuple(0 for _ in self.states)
 
-
-
     def get_max_size(self) -> Union[int, float]:
         return np.max(np.asarray(self.get_size()))
 
@@ -305,7 +303,7 @@ def wasserstein_beta(
     rv1_qs: np.ndarray = rv1.qf(u)  # type: ignore
     rv2_qs: np.ndarray = rv2.qf(u)  # type: ignore
     diffs: np.ndarray = np.abs(rv1_qs - rv2_qs)**beta
-    return (np.sum(diffs) / u.size)**(1/beta)
+    return (np.sum(diffs) / u.size)**(1 / beta)
 
 
 def birnb_orl_avg_dist_beta(
@@ -334,7 +332,7 @@ def birnb_orl_avg_dist_beta(
 
     diffs: np.ndarray = np.abs(cdf_rv1 - cdf_rv2)**beta
     weights = np.diff(common_support)
-    return float(np.sum(weights * diffs)**(1/beta))  # type: ignore
+    return float(np.sum(weights * diffs)**(1 / beta))  # type: ignore
 
 
 def extended_metric(metric: Callable[[RV, RV, float], float],

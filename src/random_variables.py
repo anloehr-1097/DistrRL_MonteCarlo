@@ -1,7 +1,6 @@
 from __future__ import annotations
 import logging
 from typing import Tuple, Union, Optional
-from numba import njit
 import numpy as np
 from scipy.stats.distributions import rv_frozen
 from scipy.stats import rv_discrete
@@ -19,7 +18,7 @@ class RV:
 
     def __init__(self) -> None:
         """Initialize discrete random variable."""
-        self.size: int = 0
+        self.size: Union[int, float] = 0
         pass
 
     def sample(self, num_samples: int=1) -> np.ndarray:
@@ -96,7 +95,7 @@ class DiscreteRV(RV):
         self.xk, self.pk = aggregate_conv_results((xk, pk))  # making sure xk has unique values
         # self.xk, self.pk = self.make_unique_atoms(xk, pk)
         self.is_sorted: bool = True
-        self.size: int = self.xk.size
+        self.size: Union[int, float] = self.xk.size
         # remove later
         self.pk = normalize_probs(self.pk)
         assert np.allclose(np.sum(self.pk), 1.0, atol=1e-10), "Probs do not sum to 1."
@@ -113,7 +112,6 @@ class DiscreteRV(RV):
         """Return distribution as Tuple of numpy arrays."""
         return self.xk, self.pk
 
-
     def make_unique_atoms(self, xk: np.ndarray, pk: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """Make sure that xk has unique values."""
 
@@ -125,7 +123,6 @@ class DiscreteRV(RV):
         assert np.allclose(np.sum(new_probs), 1.0, atol=1e-10), \
             "Probs do not sum to 1."
         return unq_atoms, new_probs
-
 
     def get_cdf(self) -> Tuple[np.ndarray, np.ndarray]:
         if self.sp_rv is not None:
@@ -159,7 +156,7 @@ class DiscreteRV(RV):
 
     def _cdf_single(self, x: float, accuracy: float = 1e-10) -> float:
         """Only to be called from cdf method since no sorting."""
-        return np.sum(self.pk[self.xk <= x+accuracy])
+        return np.sum(self.pk[self.xk <= (x + accuracy)])
 
     def cdf(self, x: Union[np.ndarray, float]) -> np.ndarray:
         """Evaluate CDF.
@@ -268,4 +265,3 @@ def conv(a: DiscreteRV, b: DiscreteRV) -> DiscreteRV:
     new_val: np.ndarray = np.add(a.xk, b.xk[:, None]).flatten()
     probs: np.ndarray = np.multiply(a.pk, b.pk[:, None]).flatten()
     return DiscreteRV(new_val, probs)
-

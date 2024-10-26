@@ -1,2 +1,5 @@
 [flake8]
 ignore = E701, E252
+ignore = E252, E701
+max-line-length = 79
+blabla = balala

@@ -16,6 +16,7 @@ black = "*"
 black-macchiato = "*"
 ipdb = "*"
 debugpy = "*"
+pyright = "*"
 
 [dev-packages]
 ipykernel = "*"

@@ -5,7 +5,7 @@ import itertools
 import numpy as np
 from .random_variables import DiscreteRV, scale
 from .config import DEBUG
-from .nb_fun import conv_njit,  aggregate_conv_results
+from .nb_fun import conv_njit, aggregate_conv_results
 from .drl_primitives import (
     MDP,
     ReturnDistributionFunction,
